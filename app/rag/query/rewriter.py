@@ -14,58 +14,52 @@ class QueryRewriter:
         )
 
     async def rewrite(
-        self,
-        question: str,
-        history: list[dict],
+            self,
+            question: str,
+            history,
+            summary: str | None = None,
     ) -> str:
-
-        if not history:
-            return question
+        summary_text = (
+                summary
+                or "暂无会话摘要。"
+        )
 
         history_text = "\n".join(
             (
-                f"{item['role']}: "
-                f"{item['content']}"
+                f"{message['role']}: "
+                f"{message['content']}"
             )
-            for item in history
+            for message in history
         )
 
         prompt = f"""
-你是企业知识库系统中的查询改写模块。
+    你负责将多轮对话中的当前问题改写成一个可以独立理解的问题。
 
-你的任务不是回答用户问题。
+    会话长期摘要：
 
-你的任务是根据对话历史，把用户最新问题改写成一个：
-完整、独立、适合知识库检索的问题。
+    {summary_text}
 
-要求：
+    最近对话历史：
 
-1. 补全最新问题中缺失的上下文。
-2. 保留金额、时间、人员、制度名称等关键条件。
-3. 不要增加对话中不存在的事实。
-4. 不要回答问题。
-5. 如果最新问题本身已经完整，尽量保持原意。
-6. 只输出改写后的问题，不要解释。
+    {history_text}
 
-对话历史：
+    当前用户问题：
 
-{history_text}
+    {question}
 
-用户最新问题：
+    要求：
 
-{question}
-""".strip()
+    1. 消除“这个”“那个”“前面说的”等指代。
+    2. 保留金额、人员、时间、条件等关键信息。
+    3. 不添加会话中不存在的事实。
+    4. 如果当前问题已经可以独立理解，则保持原意。
+    5. 只输出改写后的问题。
+    """.strip()
 
-        result = await self.llm_client.chat(
-            prompt
+        result = (
+            await self.llm_client.chat(
+                prompt
+            )
         )
 
-        rewritten = (
-            result.content
-            .strip()
-        )
-
-        if not rewritten:
-            return question
-
-        return rewritten
+        return result.content.strip()

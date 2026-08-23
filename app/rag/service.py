@@ -57,6 +57,7 @@ from app.repositories.message import (
 )
 
 from app.rag.context import (
+    ContextBuilder,
     ConversationSummarizer,
     TokenAwareHistorySelector,
     TokenBudget,
@@ -711,12 +712,12 @@ class RagService:
         ]
 
     async def chat(
-        self,
-        *,
-        knowledge_base_id: uuid.UUID,
-        conversation_id: uuid.UUID,
-        question: str,
-        top_k: int = 3,
+            self,
+            *,
+            knowledge_base_id: uuid.UUID,
+            conversation_id: uuid.UUID,
+            question: str,
+            top_k: int = 3,
     ):
 
         #
@@ -741,10 +742,35 @@ class RagService:
             )
 
         #
-        # 2. 只加载 Summary Checkpoint 之后的消息
+        # 2. 创建 Context Window 相关组件
+        #
+        token_counter = TokenCounter()
+
+        token_budget = TokenBudget()
+
+        history_selector = (
+            TokenAwareHistorySelector(
+                token_counter=(
+                    token_counter
+                ),
+            )
+        )
+
+        context_builder = ContextBuilder(
+            token_counter=token_counter,
+            token_budget=token_budget,
+            history_selector=(
+                history_selector
+            ),
+        )
+
+        #
+        # 3. 只查询 Summary Checkpoint
+        #    之后的消息
         #
         history_candidates = (
-            await self.message_repository
+            await self
+            .message_repository
             .list_after_checkpoint(
                 conversation_id=(
                     conversation.id
@@ -757,41 +783,31 @@ class RagService:
         )
 
         #
-        # 3. Token-aware History Selection
+        # 4. 构建 Conversation Context
         #
-        token_counter = TokenCounter()
-
-        token_budget = TokenBudget()
-
-        history_selector = (
-            TokenAwareHistorySelector(
-                token_counter=token_counter,
-            )
-        )
-
-        history_selection = (
-            history_selector.select(
-                messages=history_candidates,
-                budget_tokens=(
-                    token_budget.history_budget
+        conversation_context = (
+            context_builder.build(
+                summary=(
+                    conversation.summary
                 ),
+                history_candidates=(
+                    history_candidates
+                ),
+                question=question,
             )
         )
 
-        history_models = (
-            history_selection.messages
-        )
-
         #
-        # 4. 找出因为 Token Budget 被挤出去的旧消息
+        # 5. 找出 Token Budget
+        #    放不下的旧消息
         #
         excluded_messages = []
 
-        if history_selection.truncated:
+        if conversation_context.truncated:
             excluded_count = (
                     len(history_candidates)
                     - len(
-                history_selection.messages
+                conversation_context.history
             )
             )
 
@@ -802,17 +818,26 @@ class RagService:
             )
 
         logger.info(
-            "conversation summary update: "
+            "conversation context: "
             "conversation_id=%s "
+            "candidates=%s "
+            "history=%s "
             "excluded=%s "
+            "truncated=%s "
             "checkpoint=%s",
             conversation.id,
+            len(history_candidates),
+            len(
+                conversation_context.history
+            ),
             len(excluded_messages),
+            conversation_context.truncated,
             conversation.summary_message_id,
         )
 
         #
-        # 5. 对新被挤出的消息做增量 Summary
+        # 6. 如果有被挤出的历史消息，
+        #    将它们增量压缩进 Summary
         #
         if excluded_messages:
             summarizer = (
@@ -825,7 +850,9 @@ class RagService:
 
             new_summary = (
                 await summarizer.summarize(
-                    messages=excluded_messages,
+                    messages=(
+                        excluded_messages
+                    ),
                     existing_summary=(
                         conversation.summary
                     ),
@@ -850,6 +877,8 @@ class RagService:
                 )
             )
 
+            await self.session.commit()
+
             logger.info(
                 "conversation summary updated: "
                 "conversation_id=%s "
@@ -858,10 +887,42 @@ class RagService:
                 last_summarized_message.id,
             )
 
-            await self.session.commit()
+            #
+            # 7. Checkpoint 已变化，
+            #    重新查询未摘要消息
+            #
+            history_candidates = (
+                await self
+                .message_repository
+                .list_after_checkpoint(
+                    conversation_id=(
+                        conversation.id
+                    ),
+                    checkpoint_message_id=(
+                        conversation.summary_message_id
+                    ),
+                    limit=200,
+                )
+            )
+
+            #
+            # 8. 使用新 Summary
+            #    重新构建 Context
+            #
+            conversation_context = (
+                context_builder.build(
+                    summary=(
+                        conversation.summary
+                    ),
+                    history_candidates=(
+                        history_candidates
+                    ),
+                    question=question,
+                )
+            )
 
         #
-        # 6. ORM MessageModel → dict
+        # 9. ORM MessageModel -> dict
         #
         history = [
             {
@@ -869,21 +930,20 @@ class RagService:
                 "content": message.content,
             }
             for message
-            in history_models
+            in conversation_context.history
         ]
+
         #
-        # 7. Query Rewrite
+        # 10. Query Rewrite
         #
-        rewritten_question = (
-            await self.query_rewriter
-            .rewrite(
-                question=question,
-                history=history,
-            )
+        rewritten_question = await self.query_rewriter.rewrite(
+            question=question,
+            history=history,
+            summary=conversation_context.summary,
         )
 
         #
-        # 8. Retrieval + Rerank
+        # 11. Retrieval + Rerank
         #
         retrieval_results = (
             await self
@@ -903,7 +963,7 @@ class RagService:
         )
 
         #
-        # 9. 构建 RAG Context
+        # 12. 构建 RAG Context
         #
         context = "\n\n".join(
             (
@@ -917,6 +977,9 @@ class RagService:
             )
         )
 
+        #
+        # 13. 构建 History Text
+        #
         history_text = "\n".join(
             (
                 f"{item['role']}: "
@@ -927,52 +990,52 @@ class RagService:
         )
 
         summary_text = (
-            conversation.summary
-            or "暂无历史摘要"
+                conversation.summary
+                or "暂无历史摘要"
         )
 
         #
-        # 10. 构建最终 Prompt
+        # 14. 构建最终 Prompt
         #
         prompt = f"""
-你是企业内部知识库助手。
+    你是企业内部知识库助手。
 
-请根据知识库内容回答用户当前问题。
+    请根据知识库内容回答用户当前问题。
 
-规则：
+    规则：
 
-1. 只能根据提供的知识库内容回答事实问题。
-2. 不要编造知识库不存在的信息。
-3. 如果知识库无法回答，明确回答：
-   “根据当前知识库无法确定。”
-4. 对话历史只用于理解上下文。
-5. 历史中的 Assistant 回答不能作为事实依据。
-6. 事实依据必须来自本次检索得到的知识库内容。
-7. 回答应准确、简洁。
+    1. 只能根据提供的知识库内容回答事实问题。
+    2. 不要编造知识库不存在的信息。
+    3. 如果知识库无法回答，明确回答：
+       “根据当前知识库无法确定。”
+    4. 对话历史只用于理解上下文。
+    5. 历史中的 Assistant 回答不能作为事实依据。
+    6. 事实依据必须来自本次检索得到的知识库内容。
+    7. 回答应准确、简洁。
 
-历史对话摘要：
+    历史对话摘要：
 
-{summary_text}
+    {summary_text}
 
-最近对话历史：
+    最近对话历史：
 
-{history_text}
+    {history_text}
 
-知识库：
+    知识库：
 
-{context}
+    {context}
 
-用户当前问题：
+    用户当前问题：
 
-{question}
+    {question}
 
-检索使用的问题：
+    检索使用的问题：
 
-{rewritten_question}
-""".strip()
+    {rewritten_question}
+    """.strip()
 
         #
-        # 11. LLM Generation
+        # 15. LLM Generation
         #
         result = (
             await self.llm_client
@@ -982,7 +1045,7 @@ class RagService:
         )
 
         #
-        # 12. 保存 User + Assistant
+        # 16. 保存 User + Assistant Message
         #
         try:
 
@@ -1012,6 +1075,9 @@ class RagService:
 
             raise
 
+        #
+        # 17. Sources
+        #
         sources = [
             RagSource(
                 content=item[
@@ -1031,6 +1097,9 @@ class RagService:
             in retrieval_results
         ]
 
+        #
+        # 18. Response
+        #
         return {
             "conversation_id": (
                 conversation_id
