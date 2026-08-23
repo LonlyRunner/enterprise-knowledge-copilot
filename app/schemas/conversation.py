@@ -25,6 +25,8 @@ class ConversationResponse(
 
     title: str | None
 
+    summary: str | None = None
+
     created_at: datetime
 
     updated_at: datetime

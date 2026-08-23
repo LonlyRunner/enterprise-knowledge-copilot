@@ -66,7 +66,9 @@ from app.repositories.conversation import (
 from app.repositories.message import (
     MessageRepository,
 )
+
 from app.rag.context import (
+    ConversationSummarizer,
     TokenAwareHistorySelector,
     TokenBudget,
     TokenCounter,
@@ -697,6 +699,53 @@ class RagService:
             )
         )
 
+        selected_count = len(history_selection.messages)
+        candidate_count = len(history_candidates)
+
+        excluded_count = candidate_count - selected_count
+
+        excluded_messages = []
+
+        if history_selection.truncated:
+            excluded_count = (
+                    len(history_candidates)
+                    - len(history_selection.messages)
+            )
+
+            excluded_messages = history_candidates[:excluded_count]
+
+            #
+            # 4. 对被截断的旧历史生成 Summary
+            #
+            if excluded_messages:
+                summarizer = (
+                    ConversationSummarizer(
+                        llm_client=(
+                            self.llm_client
+                        )
+                    )
+                )
+
+                summary = (
+                    await summarizer.summarize(
+                        messages=excluded_messages,
+                        existing_summary=(
+                            conversation.summary
+                        ),
+                    )
+                )
+
+                conversation = (
+                    await self
+                    .conversation_repository
+                    .update_summary(
+                        conversation=conversation,
+                        summary=summary,
+                    )
+                )
+
+                await self.session.commit()
+
         #
         # 4. 转换成 QueryRewriter / Prompt 使用的 dict
         #
@@ -760,6 +809,11 @@ class RagService:
             for item in history
         )
 
+        summary_text = (
+            conversation.summary
+            or "暂无历史摘要"
+        )
+
         prompt = f"""
     你是企业内部知识库助手。
 
@@ -776,7 +830,11 @@ class RagService:
     6. 事实依据必须来自本次检索得到的知识库内容。
     7. 回答应准确、简洁。
 
-    对话历史：
+    历史对话摘要：
+
+    {summary_text}
+
+    最近对话历史：
 
     {history_text}
 

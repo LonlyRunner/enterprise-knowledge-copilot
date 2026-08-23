@@ -135,3 +135,18 @@ class ConversationRepository:
         )
 
         await self.session.flush()
+
+    async def update_summary(
+            self,
+            conversation: ConversationModel,
+            summary: str,
+    ) -> ConversationModel:
+        conversation.summary = summary
+
+        await self.session.flush()
+
+        await self.session.refresh(
+            conversation
+        )
+
+        return conversation

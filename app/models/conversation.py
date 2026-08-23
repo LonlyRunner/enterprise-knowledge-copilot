@@ -16,7 +16,7 @@ from sqlalchemy.orm import (
 )
 
 from app.db.base import Base
-
+from sqlalchemy import Text
 
 if TYPE_CHECKING:
     from app.models.knowledge_base import (
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     )
 
 
+
 class ConversationModel(Base):
 
     __tablename__ = "conversations"
@@ -35,6 +36,11 @@ class ConversationModel(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+    )
+
+    summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     knowledge_base_id: Mapped[
