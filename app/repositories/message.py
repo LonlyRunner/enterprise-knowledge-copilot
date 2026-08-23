@@ -113,3 +113,62 @@ class MessageRepository:
         messages.reverse()
 
         return messages
+
+    async def list_after_checkpoint(
+            self,
+            conversation_id: uuid.UUID,
+            checkpoint_message_id: uuid.UUID | None,
+            limit: int = 200,
+    ) -> list[MessageModel]:
+        """
+        查询 Summary Checkpoint 之后的消息。
+
+        返回顺序：
+        old -> new
+        """
+
+        if checkpoint_message_id is None:
+            stmt = (
+                select(MessageModel)
+                .where(
+                    MessageModel.conversation_id == conversation_id,
+                )
+                .order_by(
+                    MessageModel.created_at.asc(),
+                )
+                .limit(limit)
+            )
+
+            result = await self.session.execute(stmt)
+
+            return list(result.scalars().all())
+
+        checkpoint_stmt = select(MessageModel).where(
+            MessageModel.id == checkpoint_message_id,
+            MessageModel.conversation_id == conversation_id,
+        )
+
+        checkpoint_result = await self.session.execute(
+            checkpoint_stmt
+        )
+
+        checkpoint = checkpoint_result.scalar_one_or_none()
+
+        if checkpoint is None:
+            return []
+
+        stmt = (
+            select(MessageModel)
+            .where(
+                MessageModel.conversation_id == conversation_id,
+                MessageModel.created_at > checkpoint.created_at,
+            )
+            .order_by(
+                MessageModel.created_at.asc(),
+            )
+            .limit(limit)
+        )
+
+        result = await self.session.execute(stmt)
+
+        return list(result.scalars().all())

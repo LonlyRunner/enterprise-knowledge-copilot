@@ -741,133 +741,80 @@ class RagService:
             )
 
         #
-        # 2. 加载历史候选消息
+        # 2. 只加载 Summary Checkpoint 之后的消息
         #
         history_candidates = (
-            await self
-            .message_repository
-            .list_recent(
+            await self.message_repository
+            .list_after_checkpoint(
                 conversation_id=(
-                    conversation_id
+                    conversation.id
                 ),
-                limit=100,
+                checkpoint_message_id=(
+                    conversation.summary_message_id
+                ),
+                limit=200,
             )
         )
 
         #
         # 3. Token-aware History Selection
         #
-        token_counter = (
-            TokenCounter()
-        )
+        token_counter = TokenCounter()
 
-        token_budget = (
-            TokenBudget()
-        )
+        token_budget = TokenBudget()
 
         history_selector = (
             TokenAwareHistorySelector(
-                token_counter=(
-                    token_counter
-                ),
+                token_counter=token_counter,
             )
         )
 
         history_selection = (
             history_selector.select(
-                messages=(
-                    history_candidates
-                ),
+                messages=history_candidates,
                 budget_tokens=(
-                    token_budget
-                    .history_budget
+                    token_budget.history_budget
                 ),
             )
         )
 
-        selected_count = len(
+        history_models = (
             history_selection.messages
         )
 
-        candidate_count = len(
-            history_candidates
-        )
-
-        excluded_count = (
-            candidate_count
-            - selected_count
-        )
-
+        #
+        # 4. 找出因为 Token Budget 被挤出去的旧消息
+        #
         excluded_messages = []
 
-        if (
-            history_selection.truncated
-            and excluded_count > 0
-        ):
+        if history_selection.truncated:
+            excluded_count = (
+                    len(history_candidates)
+                    - len(
+                history_selection.messages
+            )
+            )
+
             excluded_messages = (
                 history_candidates[
                     :excluded_count
                 ]
             )
 
-        #
-        # 4. 计算真正需要增量摘要的消息
-        #
-        messages_to_summarize = (
-            excluded_messages
-        )
-
-        if (
-            conversation.summary_message_id
-            is not None
-            and excluded_messages
-        ):
-            checkpoint_index = None
-
-            for index, message in enumerate(
-                excluded_messages
-            ):
-                if (
-                    message.id
-                    == conversation
-                    .summary_message_id
-                ):
-                    checkpoint_index = (
-                        index
-                    )
-                    break
-
-            if (
-                checkpoint_index
-                is not None
-            ):
-                messages_to_summarize = (
-                    excluded_messages[
-                        checkpoint_index + 1:
-                    ]
-                )
-
         logger.info(
             "conversation summary update: "
             "conversation_id=%s "
             "excluded=%s "
-            "new_messages=%s "
             "checkpoint=%s",
             conversation.id,
-            len(
-                excluded_messages
-            ),
-            len(
-                messages_to_summarize
-            ),
+            len(excluded_messages),
             conversation.summary_message_id,
         )
 
         #
-        # 5. 增量更新 Conversation Summary
+        # 5. 对新被挤出的消息做增量 Summary
         #
-        if messages_to_summarize:
-
+        if excluded_messages:
             summarizer = (
                 ConversationSummarizer(
                     llm_client=(
@@ -877,11 +824,8 @@ class RagService:
             )
 
             new_summary = (
-                await summarizer
-                .summarize(
-                    messages=(
-                        messages_to_summarize
-                    ),
+                await summarizer.summarize(
+                    messages=excluded_messages,
                     existing_summary=(
                         conversation.summary
                     ),
@@ -889,9 +833,7 @@ class RagService:
             )
 
             last_summarized_message = (
-                messages_to_summarize[
-                    -1
-                ]
+                excluded_messages[-1]
             )
 
             conversation = (
@@ -901,9 +843,7 @@ class RagService:
                     conversation=(
                         conversation
                     ),
-                    summary=(
-                        new_summary
-                    ),
+                    summary=new_summary,
                     summary_message_id=(
                         last_summarized_message.id
                     ),
@@ -921,21 +861,16 @@ class RagService:
             await self.session.commit()
 
         #
-        # 6. 转换最近历史
+        # 6. ORM MessageModel → dict
         #
         history = [
             {
-                "role": (
-                    message.role
-                ),
-                "content": (
-                    message.content
-                ),
+                "role": message.role,
+                "content": message.content,
             }
             for message
-            in history_selection.messages
+            in history_models
         ]
-
         #
         # 7. Query Rewrite
         #
