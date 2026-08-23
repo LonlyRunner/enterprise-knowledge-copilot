@@ -60,10 +60,10 @@ from app.rag.context import (
     ContextBuilder,
     ConversationSummarizer,
     TokenAwareHistorySelector,
+    TokenAwareRagContextSelector,
     TokenBudget,
     TokenCounter,
 )
-
 
 logger = logging.getLogger(
     __name__
@@ -191,7 +191,7 @@ class RagService:
 
         texts = [
             chunk.content
-            for chunk in chunks
+            for chunk in runtime_context.rag_chunks
         ]
 
         embeddings = (
@@ -745,23 +745,21 @@ class RagService:
         # 2. 创建 Context Window 相关组件
         #
         token_counter = TokenCounter()
-
         token_budget = TokenBudget()
 
-        history_selector = (
-            TokenAwareHistorySelector(
-                token_counter=(
-                    token_counter
-                ),
-            )
+        history_selector = TokenAwareHistorySelector(
+            token_counter=token_counter,
+        )
+
+        rag_context_selector = TokenAwareRagContextSelector(
+            token_counter=token_counter,
         )
 
         context_builder = ContextBuilder(
             token_counter=token_counter,
             token_budget=token_budget,
-            history_selector=(
-                history_selector
-            ),
+            history_selector=history_selector,
+            rag_context_selector=rag_context_selector,
         )
 
         #
@@ -785,77 +783,35 @@ class RagService:
         #
         # 4. 构建 Conversation Context
         #
-        conversation_context = (
-            context_builder.build(
-                summary=(
-                    conversation.summary
-                ),
-                history_candidates=(
-                    history_candidates
-                ),
+        runtime_context = (
+            context_builder.build_conversation_context(
+                summary=conversation.summary,
+                history_candidates=history_candidates,
                 question=question,
             )
         )
 
-        #
-        # 5. 找出 Token Budget
-        #    放不下的旧消息
-        #
         excluded_messages = []
 
-        if conversation_context.truncated:
+        if runtime_context.history_truncated:
             excluded_count = (
                     len(history_candidates)
-                    - len(
-                conversation_context.history
-            )
+                    - len(runtime_context.history)
             )
 
-            excluded_messages = (
-                history_candidates[
-                    :excluded_count
-                ]
-            )
+            excluded_messages = history_candidates[
+                :excluded_count
+            ]
 
-        logger.info(
-            "conversation context: "
-            "conversation_id=%s "
-            "candidates=%s "
-            "history=%s "
-            "excluded=%s "
-            "truncated=%s "
-            "checkpoint=%s",
-            conversation.id,
-            len(history_candidates),
-            len(
-                conversation_context.history
-            ),
-            len(excluded_messages),
-            conversation_context.truncated,
-            conversation.summary_message_id,
-        )
-
-        #
-        # 6. 如果有被挤出的历史消息，
-        #    将它们增量压缩进 Summary
-        #
         if excluded_messages:
-            summarizer = (
-                ConversationSummarizer(
-                    llm_client=(
-                        self.llm_client
-                    ),
-                )
+            summarizer = ConversationSummarizer(
+                llm_client=self.llm_client,
             )
 
             new_summary = (
                 await summarizer.summarize(
-                    messages=(
-                        excluded_messages
-                    ),
-                    existing_summary=(
-                        conversation.summary
-                    ),
+                    messages=excluded_messages,
+                    existing_summary=conversation.summary,
                 )
             )
 
@@ -864,12 +820,8 @@ class RagService:
             )
 
             conversation = (
-                await self
-                .conversation_repository
-                .update_summary(
-                    conversation=(
-                        conversation
-                    ),
+                await self.conversation_repository.update_summary(
+                    conversation=conversation,
                     summary=new_summary,
                     summary_message_id=(
                         last_summarized_message.id
@@ -879,25 +831,9 @@ class RagService:
 
             await self.session.commit()
 
-            logger.info(
-                "conversation summary updated: "
-                "conversation_id=%s "
-                "summary_message_id=%s",
-                conversation.id,
-                last_summarized_message.id,
-            )
-
-            #
-            # 7. Checkpoint 已变化，
-            #    重新查询未摘要消息
-            #
             history_candidates = (
-                await self
-                .message_repository
-                .list_after_checkpoint(
-                    conversation_id=(
-                        conversation.id
-                    ),
+                await self.message_repository.list_after_checkpoint(
+                    conversation_id=conversation.id,
                     checkpoint_message_id=(
                         conversation.summary_message_id
                     ),
@@ -905,43 +841,29 @@ class RagService:
                 )
             )
 
-            #
-            # 8. 使用新 Summary
-            #    重新构建 Context
-            #
-            conversation_context = (
-                context_builder.build(
-                    summary=(
-                        conversation.summary
-                    ),
-                    history_candidates=(
-                        history_candidates
-                    ),
+            runtime_context = (
+                context_builder.build_conversation_context(
+                    summary=conversation.summary,
+                    history_candidates=history_candidates,
                     question=question,
                 )
             )
 
-        #
-        # 9. ORM MessageModel -> dict
-        #
         history = [
             {
                 "role": message.role,
                 "content": message.content,
             }
-            for message
-            in conversation_context.history
+            for message in runtime_context.history
         ]
 
-        #
-        # 10. Query Rewrite
-        #
-        rewritten_question = await self.query_rewriter.rewrite(
-            question=question,
-            history=history,
-            summary=conversation_context.summary,
+        rewritten_question = (
+            await self.query_rewriter.rewrite(
+                question=question,
+                history=history,
+                summary=runtime_context.summary,
+            )
         )
-
         #
         # 11. Retrieval + Rerank
         #
