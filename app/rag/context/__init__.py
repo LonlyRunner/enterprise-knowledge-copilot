@@ -33,10 +33,15 @@ from app.rag.context.token_guard import (
     TokenGuardResult,
 )
 
+from app.rag.context.context_degrader import (
+    ContextDegrader,
+)
+
 
 __all__ = [
     "BuiltPrompt",
     "ContextBuilder",
+    "ContextDegrader",
     "ContextWindowExceededError",
     "ConversationSummarizer",
     "HistorySelectionResult",

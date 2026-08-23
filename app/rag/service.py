@@ -58,6 +58,8 @@ from app.repositories.message import (
 
 from app.rag.context import (
     ContextBuilder,
+    ContextDegrader,
+    ContextWindowExceededError,
     ConversationSummarizer,
     PromptBuilder,
     TokenAwareHistorySelector,
@@ -66,7 +68,6 @@ from app.rag.context import (
     TokenCounter,
     TokenGuard,
 )
-
 
 
 logger = logging.getLogger(
@@ -772,6 +773,8 @@ class RagService:
             token_counter=token_counter,
             token_budget=token_budget,
         )
+
+        context_degrader = ContextDegrader()
         #
         # 3. 只查询 Summary Checkpoint
         #    之后的消息
@@ -959,42 +962,66 @@ class RagService:
         #
         # 14. PromptBuilder
         #
-        built_prompt = (
-            prompt_builder
-            .build_answer_prompt(
-                summary=(
-                    runtime_context.summary
-                ),
-                history=(
-                    runtime_context.history
-                ),
-                rag_chunks=(
-                    runtime_context.rag_chunks
-                ),
-                question=question,
+        max_degradation_attempts = 50
+        degradation_attempt = 0
+
+        while True:
+
+            built_prompt = (
+                prompt_builder.build_answer_prompt(
+                    summary=runtime_context.summary,
+                    history=runtime_context.history,
+                    rag_chunks=runtime_context.rag_chunks,
+                    question=question,
+                )
             )
-        )
+
+            try:
+
+                token_guard_result = (
+                    token_guard.validate(
+                        built_prompt
+                    )
+                )
+
+                break
+
+            except ContextWindowExceededError:
+
+                degradation_attempt += 1
+
+                logger.warning(
+                    "context window exceeded: "
+                    "conversation_id=%s "
+                    "attempt=%s "
+                    "max_attempts=%s",
+                    conversation.id,
+                    degradation_attempt,
+                    max_degradation_attempts,
+                )
+
+                if (
+                        degradation_attempt
+                        > max_degradation_attempts
+                ):
+                    raise
+
+                degraded_context = (
+                    context_degrader.degrade(
+                        runtime_context
+                    )
+                )
+
+                if degraded_context is None:
+                    raise
+
+                runtime_context = (
+                    degraded_context
+                )
+
 
         #
-        # 15. Token Guard
-        #
-        token_guard_result = (
-            token_guard.validate(
-                built_prompt
-            )
-        )
-
-        logger.info(
-            "prompt token guard: "
-            "conversation_id=%s "
-            "result=%s",
-            conversation.id,
-            token_guard_result,
-        )
-
-        #
-        # 16. 保持现有 LLM Provider
-        #     Interface 不变
+        # 17. LLM Generation
         #
         final_prompt = f"""
         {built_prompt.system_prompt}
@@ -1002,12 +1029,8 @@ class RagService:
         {built_prompt.user_prompt}
         """.strip()
 
-        #
-        # 17. LLM Generation
-        #
         result = (
-            await self.llm_client
-            .chat(
+            await self.llm_client.chat(
                 final_prompt
             )
         )
