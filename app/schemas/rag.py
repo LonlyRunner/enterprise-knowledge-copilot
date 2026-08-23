@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 import uuid
+from pydantic import BaseModel, Field
 
 class RagIndexResponse(BaseModel):
     document: str
@@ -224,3 +225,16 @@ class VectorRetrievalDebugRequest(
         ge=1,
         le=20,
     )
+
+class TokenEstimateRequest(BaseModel):
+    text: str = Field(
+        ...,
+        min_length=1,
+        description="需要进行 Token 估算的文本",
+    )
+
+
+class TokenEstimateResponse(BaseModel):
+    text: str
+    token_count: int
+    budget: dict[str, int]

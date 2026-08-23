@@ -52,7 +52,8 @@ from app.db.dependencies import (
 from app.schemas.rag import (
     VectorRetrievalDebugRequest,
 )
-
+from app.rag.context import TokenBudget, TokenCounter
+from app.schemas.rag import TokenEstimateRequest, TokenEstimateResponse
 router = APIRouter()
 
 @router.post(
@@ -335,4 +336,22 @@ async def vector_retrieval_debug(
     return await rag_service.retrieve_vector(
         question=request.question,
         top_k=request.top_k,
+    )
+
+@router.post(
+    "/token-estimate",
+    response_model=TokenEstimateResponse,
+)
+async def estimate_tokens(
+    request: TokenEstimateRequest,
+) -> TokenEstimateResponse:
+    counter = TokenCounter()
+    budget = TokenBudget()
+
+    token_count = counter.count_text(request.text)
+
+    return TokenEstimateResponse(
+        text=request.text,
+        token_count=token_count,
+        budget=budget.as_dict(),
     )
