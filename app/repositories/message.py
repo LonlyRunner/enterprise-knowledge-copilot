@@ -75,7 +75,7 @@ class MessageRepository:
         self,
         *,
         conversation_id: uuid.UUID,
-        limit: int = 10,
+        limit: int = 100,
     ) -> list[MessageModel]:
 
         statement = (

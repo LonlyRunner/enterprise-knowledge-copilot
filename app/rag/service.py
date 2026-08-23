@@ -66,7 +66,11 @@ from app.repositories.conversation import (
 from app.repositories.message import (
     MessageRepository,
 )
-
+from app.rag.context import (
+    TokenAwareHistorySelector,
+    TokenBudget,
+    TokenCounter,
+)
 class RagService:
 
     def __init__(
@@ -656,32 +660,54 @@ class RagService:
             )
 
         #
-        # 2. 从 DB 加载最近历史
         #
-        history_models = (
+        #
+        # 2. 从 DB 加载历史候选消息
+        #
+        history_candidates = (
             await self
             .message_repository
             .list_recent(
                 conversation_id=(
                     conversation_id
                 ),
-                limit=10,
+                limit=100,
             )
         )
 
+        #
+        # 3. Token-aware History Selection
+        #
+        token_counter = TokenCounter()
+
+        token_budget = TokenBudget()
+
+        history_selector = (
+            TokenAwareHistorySelector(
+                token_counter=token_counter,
+            )
+        )
+
+        history_selection = (
+            history_selector.select(
+                messages=history_candidates,
+                budget_tokens=(
+                    token_budget.history_budget
+                ),
+            )
+        )
+
+        #
+        # 4. 转换成 QueryRewriter / Prompt 使用的 dict
+        #
         history = [
             {
-                "role": (
-                    message.role
-                ),
-                "content": (
-                    message.content
-                ),
+                "role": message.role,
+                "content": message.content,
             }
             for message
-            in history_models
+            in history_selection.messages
         ]
-
         #
         # 3. Query Rewrite
         #
