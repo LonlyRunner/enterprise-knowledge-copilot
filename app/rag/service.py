@@ -59,11 +59,15 @@ from app.repositories.message import (
 from app.rag.context import (
     ContextBuilder,
     ConversationSummarizer,
+    PromptBuilder,
     TokenAwareHistorySelector,
     TokenAwareRagContextSelector,
     TokenBudget,
     TokenCounter,
+    TokenGuard,
 )
+
+
 
 logger = logging.getLogger(
     __name__
@@ -191,7 +195,7 @@ class RagService:
 
         texts = [
             chunk.content
-            for chunk in runtime_context.rag_chunks
+            for chunk in chunks
         ]
 
         embeddings = (
@@ -762,6 +766,12 @@ class RagService:
             rag_context_selector=rag_context_selector,
         )
 
+        prompt_builder = PromptBuilder()
+
+        token_guard = TokenGuard(
+            token_counter=token_counter,
+            token_budget=token_budget,
+        )
         #
         # 3. 只查询 Summary Checkpoint
         #    之后的消息
@@ -865,6 +875,7 @@ class RagService:
             )
         )
         #
+        #
         # 11. Retrieval + Rerank
         #
         retrieval_results = (
@@ -885,89 +896,124 @@ class RagService:
         )
 
         #
-        # 12. 构建 RAG Context
+        # 12. Retrieval Result
+        #     -> DocumentChunk
         #
-        context = "\n\n".join(
-            (
-                f"[文档片段 {index + 1}]\n"
-                f"来源: {item['source']}\n"
-                f"{item['content']}"
-            )
-            for index, item
-            in enumerate(
-                retrieval_results
-            )
-        )
-
-        #
-        # 13. 构建 History Text
-        #
-        history_text = "\n".join(
-            (
-                f"{item['role']}: "
-                f"{item['content']}"
+        rag_candidates = [
+            DocumentChunk(
+                id=str(
+                    item["chunk_id"]
+                ),
+                content=(
+                    item["content"]
+                ),
+                metadata={
+                    "source": (
+                        item["source"]
+                    ),
+                    "chunk_index": (
+                        item["chunk_index"]
+                    ),
+                },
             )
             for item
-            in history
+            in retrieval_results
+        ]
+
+        #
+        # 13. 将 RAG Context 加入
+        #     Runtime Context
+        #
+        runtime_context = (
+            context_builder
+            .attach_rag_context(
+                context=(
+                    runtime_context
+                ),
+                rag_candidates=(
+                    rag_candidates
+                ),
+            )
         )
 
-        summary_text = (
-                conversation.summary
-                or "暂无历史摘要"
+        logger.info(
+            "rag runtime context: "
+            "conversation_id=%s "
+            "summary_tokens=%s "
+            "history_tokens=%s "
+            "rag_context_tokens=%s "
+            "question_tokens=%s "
+            "total_tokens=%s "
+            "history_truncated=%s "
+            "rag_context_truncated=%s",
+            conversation.id,
+            runtime_context.summary_tokens,
+            runtime_context.history_tokens,
+            runtime_context.rag_context_tokens,
+            runtime_context.question_tokens,
+            runtime_context.total_tokens,
+            runtime_context.history_truncated,
+            runtime_context.rag_context_truncated,
         )
 
         #
-        # 14. 构建最终 Prompt
+        # 14. PromptBuilder
         #
-        prompt = f"""
-    你是企业内部知识库助手。
-
-    请根据知识库内容回答用户当前问题。
-
-    规则：
-
-    1. 只能根据提供的知识库内容回答事实问题。
-    2. 不要编造知识库不存在的信息。
-    3. 如果知识库无法回答，明确回答：
-       “根据当前知识库无法确定。”
-    4. 对话历史只用于理解上下文。
-    5. 历史中的 Assistant 回答不能作为事实依据。
-    6. 事实依据必须来自本次检索得到的知识库内容。
-    7. 回答应准确、简洁。
-
-    历史对话摘要：
-
-    {summary_text}
-
-    最近对话历史：
-
-    {history_text}
-
-    知识库：
-
-    {context}
-
-    用户当前问题：
-
-    {question}
-
-    检索使用的问题：
-
-    {rewritten_question}
-    """.strip()
+        built_prompt = (
+            prompt_builder
+            .build_answer_prompt(
+                summary=(
+                    runtime_context.summary
+                ),
+                history=(
+                    runtime_context.history
+                ),
+                rag_chunks=(
+                    runtime_context.rag_chunks
+                ),
+                question=question,
+            )
+        )
 
         #
-        # 15. LLM Generation
+        # 15. Token Guard
+        #
+        token_guard_result = (
+            token_guard.validate(
+                built_prompt
+            )
+        )
+
+        logger.info(
+            "prompt token guard: "
+            "conversation_id=%s "
+            "result=%s",
+            conversation.id,
+            token_guard_result,
+        )
+
+        #
+        # 16. 保持现有 LLM Provider
+        #     Interface 不变
+        #
+        final_prompt = f"""
+        {built_prompt.system_prompt}
+
+        {built_prompt.user_prompt}
+        """.strip()
+
+        #
+        # 17. LLM Generation
         #
         result = (
             await self.llm_client
             .chat(
-                prompt
+                final_prompt
             )
         )
 
         #
-        # 16. 保存 User + Assistant Message
+        # 18. 保存 User + Assistant Message
         #
         try:
 
@@ -998,7 +1044,7 @@ class RagService:
             raise
 
         #
-        # 17. Sources
+        # 19. Sources
         #
         sources = [
             RagSource(
@@ -1020,7 +1066,7 @@ class RagService:
         ]
 
         #
-        # 18. Response
+        # 20. Response
         #
         return {
             "conversation_id": (

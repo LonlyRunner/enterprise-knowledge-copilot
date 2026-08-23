@@ -23,15 +23,30 @@ from app.rag.context.token_counter import (
     TokenCounter,
 )
 
+from app.rag.context.prompt_builder import (
+    BuiltPrompt,
+    PromptBuilder,
+)
+from app.rag.context.token_guard import (
+    ContextWindowExceededError,
+    TokenGuard,
+    TokenGuardResult,
+)
+
 
 __all__ = [
+    "BuiltPrompt",
     "ContextBuilder",
-    "RagRuntimeContext",
+    "ContextWindowExceededError",
     "ConversationSummarizer",
     "HistorySelectionResult",
-    "TokenAwareHistorySelector",
+    "PromptBuilder",
     "RagContextSelectionResult",
+    "RagRuntimeContext",
+    "TokenAwareHistorySelector",
     "TokenAwareRagContextSelector",
     "TokenBudget",
     "TokenCounter",
+    "TokenGuard",
+    "TokenGuardResult",
 ]
