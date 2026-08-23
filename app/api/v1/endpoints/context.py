@@ -13,7 +13,9 @@ from app.conversation.token_counter import (
 from app.conversation.recent_message_window import (
     RecentMessageWindow,
 )
-
+from app.conversation.context_window_manager import (
+    ContextWindowManager,
+)
 
 router = APIRouter()
 
@@ -35,6 +37,17 @@ class RecentMessageWindowRequest(BaseModel):
 
     token_budget: int | None = None
 
+
+class ContextWindowRequest(BaseModel):
+    system_prompt: str
+
+    conversation_summary: str | None = None
+
+    messages: list[TokenMessage]
+
+    retrieved_context: list[str]
+
+    current_question: str
 @router.get(
     "/token-budget",
 )
@@ -215,4 +228,100 @@ async def select_recent_messages(
         "selected_messages": (
             result.selected_messages
         ),
+    }
+
+
+@router.post(
+    "/build",
+)
+async def build_context(
+    request: ContextWindowRequest,
+):
+    """
+    构造一次受 Token Budget 管理的 LLM Context。
+    """
+
+    counter = TokenCounter()
+
+    manager = ContextWindowManager(
+        token_counter=counter,
+        token_budget=DEFAULT_TOKEN_BUDGET,
+    )
+
+    messages = [
+        {
+            "role": message.role,
+            "content": message.content,
+        }
+        for message in request.messages
+    ]
+
+    managed_context = manager.build(
+        system_prompt=(
+            request.system_prompt
+        ),
+
+        conversation_summary=(
+            request.conversation_summary
+        ),
+
+        messages=messages,
+
+        retrieved_context=(
+            request.retrieved_context
+        ),
+
+        current_question=(
+            request.current_question
+        ),
+    )
+
+    return {
+        "token_usage": (
+            managed_context.token_usage
+        ),
+
+        "total_input_tokens": (
+            managed_context
+            .total_input_tokens
+        ),
+
+        "input_budget": (
+            DEFAULT_TOKEN_BUDGET
+            .input_budget
+        ),
+
+        "remaining_input_tokens": (
+            DEFAULT_TOKEN_BUDGET
+            .input_budget
+            - managed_context
+            .total_input_tokens
+        ),
+
+        "context": {
+            "system_prompt": (
+                managed_context
+                .system_prompt
+            ),
+
+            "conversation_summary": (
+                managed_context
+                .conversation_summary
+            ),
+
+            "recent_messages": (
+                managed_context
+                .recent_messages
+            ),
+
+            "retrieved_context": (
+                managed_context
+                .retrieved_context
+            ),
+
+            "current_question": (
+                managed_context
+                .current_question
+            ),
+        },
     }

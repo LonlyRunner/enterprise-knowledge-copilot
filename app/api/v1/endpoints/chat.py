@@ -9,7 +9,7 @@ from app.schemas.chat import (
 )
 
 
-# nihao
+
 from app.services.chat_service import ChatService
 
 router = APIRouter()
