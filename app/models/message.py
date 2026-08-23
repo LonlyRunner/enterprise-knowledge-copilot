@@ -67,5 +67,9 @@ class MessageModel(Base):
     conversation: Mapped[
         "ConversationModel"
     ] = relationship(
-        back_populates="messages"
+        "ConversationModel",
+        back_populates="messages",
+        foreign_keys=[
+            conversation_id
+        ],
     )

@@ -138,10 +138,18 @@ class ConversationRepository:
 
     async def update_summary(
             self,
+            *,
             conversation: ConversationModel,
             summary: str,
+            summary_message_id: uuid.UUID,
     ) -> ConversationModel:
-        conversation.summary = summary
+        conversation.summary = (
+            summary
+        )
+
+        conversation.summary_message_id = (
+            summary_message_id
+        )
 
         await self.session.flush()
 

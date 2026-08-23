@@ -27,6 +27,10 @@ class ConversationResponse(
 
     summary: str | None = None
 
+    summary_message_id: (
+            uuid.UUID | None
+    ) = None
+
     created_at: datetime
 
     updated_at: datetime
