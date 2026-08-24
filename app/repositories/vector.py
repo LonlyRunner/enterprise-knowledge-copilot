@@ -95,6 +95,7 @@ class PostgresVectorRepository:
                 id=str(
                     model.id
                 ),
+                tenant_id=model.tenant_id,
 
                 document_id=str(
                     model.document_id

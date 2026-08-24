@@ -4,6 +4,10 @@ from dataclasses import dataclass, field
 @dataclass
 class Document:
 
+    id: str
+
+    tenant_id: str
+
     content: str
 
     metadata: dict = field(
@@ -14,6 +18,8 @@ class Document:
 class DocumentChunk:
 
     id: str
+
+    tenant_id: str
 
     document_id: str
 

@@ -7,7 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Text,
-    func,
+    func, String,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import (
@@ -60,6 +60,12 @@ class DocumentChunkModel(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+    )
+
+    tenant_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
     )
 
     document_id: Mapped[

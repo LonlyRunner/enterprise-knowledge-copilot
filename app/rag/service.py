@@ -410,6 +410,8 @@ class RagService:
                         model.id
                     ),
 
+                    tenant_id=model.tenant_id,
+
                     document_id=str(
                         model.document_id
                     ),
@@ -987,6 +989,8 @@ class RagService:
                 id=str(
                     item["chunk_id"]
                 ),
+
+                # tenant_id=model.tenant_id,
 
                 document_id="",
 

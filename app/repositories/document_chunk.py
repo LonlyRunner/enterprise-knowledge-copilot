@@ -89,6 +89,7 @@ class DocumentChunkRepository:
 
     async def list_by_knowledge_base_for_retrieval(
             self,
+            tenant_id,
             knowledge_base_id: uuid.UUID,
     ) -> list[tuple[
         DocumentChunkModel,

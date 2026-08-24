@@ -40,6 +40,12 @@ class DocumentModel(Base):
         default=uuid.uuid4,
     )
 
+    tenant_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
