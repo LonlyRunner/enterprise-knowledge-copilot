@@ -9,5 +9,8 @@ class BaseDocumentLoader(ABC):
     def load(
         self,
         file_path: str,
+        *,
+        document_id: str | None = None,
+        tenant_id: str = "default",
     ) -> Document:
         pass
