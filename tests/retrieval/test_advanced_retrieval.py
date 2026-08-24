@@ -1,4 +1,4 @@
-from chunk import chunk
+from types import SimpleNamespace
 
 from app.rag.retrieval.metadata_filter import MetadataFilter
 
@@ -11,7 +11,7 @@ def test_metadata_filter():
 
     result = filter.filter(
         [
-            chunk(
+            SimpleNamespace(
                 metadata={
                     "department":
                     "finance"

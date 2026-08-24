@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.rag.embedding import EmbeddingClient
 from app.rag.loaders.factory import (
     create_document_loader,
@@ -25,6 +26,7 @@ class DocumentIndexService:
         session: AsyncSession,
     ):
         self.session = session
+        self.settings = get_settings()
 
         self.document_repository = (
             DocumentRepository(
@@ -72,11 +74,15 @@ class DocumentIndexService:
                 "Document source path is empty"
             )
 
-        path = Path(
-            document.source_path
-        )
+        storage_root = Path(self.settings.document_storage_path).resolve()
+        path = Path(document.source_path).resolve()
 
-        if not path.exists():
+        if not path.is_relative_to(storage_root):
+            raise ValueError(
+                "Document source path is outside the configured storage directory"
+            )
+
+        if not path.is_file():
             raise FileNotFoundError(
                 f"Document file not found: {path}"
             )
@@ -163,6 +169,7 @@ class DocumentIndexService:
             await self.chunk_repository.create_many(
                 document_id=document.id,
                 chunks=chunk_data,
+                tenant_id=document.tenant_id,
             )
 
             await self.document_repository.mark_completed(

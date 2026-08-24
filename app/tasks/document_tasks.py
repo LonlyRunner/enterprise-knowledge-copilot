@@ -11,9 +11,6 @@ from app.repositories.document import (
 from app.services.document_index_service import (
     DocumentIndexService,
 )
-from app.tasks.exceptions import (
-    is_retryable_exception,
-)
 from app.worker.celery_app import (
     celery_app,
 )

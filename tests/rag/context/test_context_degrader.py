@@ -13,7 +13,7 @@ class MockMessage:
 
 
 @dataclass
-class TestChunk:
+class MockChunk:
     content: str
 
 
@@ -49,9 +49,9 @@ def test_degrader_removes_lowest_ranked_rag_first():
             )
         ],
         rag_chunks=[
-            TestChunk(content="高相关"),
-            TestChunk(content="中相关"),
-            TestChunk(content="低相关"),
+            MockChunk(content="高相关"),
+            MockChunk(content="中相关"),
+            MockChunk(content="低相关"),
         ],
     )
 

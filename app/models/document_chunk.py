@@ -66,6 +66,8 @@ class DocumentChunkModel(Base):
         String(64),
         nullable=False,
         index=True,
+        default="default",
+        server_default="default",
     )
 
     document_id: Mapped[

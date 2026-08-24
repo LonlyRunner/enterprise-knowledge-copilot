@@ -1,44 +1,24 @@
 
-from app.rag.service import RagService
+import uuid
+
+from fastapi import APIRouter, Depends
+
 from app.rag.evaluator import RagEvaluator
+from app.rag.experiment import ExperimentConfig, RagExperimentRunner
+from app.rag.service import RagService
 from app.schemas.rag import (
+    HybridRetrievalDebugRequest,
+    RagChatRequest,
+    RagChatResponse,
+    RagExperimentRequest,
     RagIndexRequest,
     RagIndexResponse,
     RagQueryRequest,
     RagQueryResponse,
-    RetrievalDebugRequest,
-    RetrievalDebugResponse,
-)
-
-from app.rag.experiment import (
-    ExperimentConfig,
-    RagExperimentRunner,
-)
-
-from app.schemas.rag import (
-    RagExperimentRequest,
-)
-
-from app.schemas.rag import (
-    RagIndexRequest,
-)
-
-from app.schemas.rag import (
-    HybridRetrievalDebugRequest,
-)
-
-from app.schemas.rag import (
     RerankDebugRequest,
-)
-
-from app.schemas.rag import (
-    RagChatRequest,
-    RagChatResponse,
-)
-
-from fastapi import (
-    APIRouter,
-    Depends,
+    TokenEstimateRequest,
+    TokenEstimateResponse,
+    VectorRetrievalDebugRequest,
 )
 
 from sqlalchemy.ext.asyncio import (
@@ -49,11 +29,7 @@ from app.db.dependencies import (
     get_db,
 )
 
-from app.schemas.rag import (
-    VectorRetrievalDebugRequest,
-)
 from app.rag.context import TokenBudget, TokenCounter
-from app.schemas.rag import TokenEstimateRequest, TokenEstimateResponse
 router = APIRouter()
 
 @router.post(
@@ -108,6 +84,7 @@ async def query_rag(
     "/rag/evaluation/retrieval",
 )
 async def evaluate_retrieval(
+    knowledge_base_id: uuid.UUID,
     top_k: int = 3,
 
     db: AsyncSession = Depends(
@@ -128,6 +105,7 @@ async def evaluate_retrieval(
             dataset_path=(
                 "data/evaluation.json"
             ),
+            knowledge_base_id=knowledge_base_id,
             top_k=top_k,
         )
     )
@@ -193,6 +171,7 @@ async def run_rag_experiments(
             dataset_path=(
                 "data/evaluation.json"
             ),
+            knowledge_base_id=request.knowledge_base_id,
             configs=configs,
         )
     )
@@ -240,6 +219,7 @@ async def hybrid_retrieval_debug(
     "/rag/evaluation/hybrid",
 )
 async def evaluate_hybrid(
+    knowledge_base_id: uuid.UUID,
     top_k: int = 3,
     candidate_k: int = 10,
 
@@ -260,6 +240,7 @@ async def evaluate_hybrid(
         dataset_path=(
             "data/evaluation.json"
         ),
+        knowledge_base_id=knowledge_base_id,
         top_k=top_k,
         candidate_k=candidate_k,
     )
@@ -280,6 +261,7 @@ async def rerank_debug(
     )
 
     return await rag_service.retrieve_with_rerank(
+        knowledge_base_id=request.knowledge_base_id,
         question=request.question,
         top_k=request.top_k,
         candidate_k=request.candidate_k,
@@ -336,6 +318,7 @@ async def vector_retrieval_debug(
     return await rag_service.retrieve_vector(
         question=request.question,
         top_k=request.top_k,
+        knowledge_base_id=request.knowledge_base_id,
     )
 
 @router.post(

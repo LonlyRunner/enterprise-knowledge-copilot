@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import (
 from app.models.document import (
     DocumentModel,
 )
+from app.core.config import get_settings
 from datetime import datetime, timezone
 
 class DocumentRepository:
@@ -27,7 +28,9 @@ class DocumentRepository:
             source_path: str | None,
             status: str = "pending",
             document_id: uuid.UUID | None = None,
+            tenant_id: str | None = None,
     ) -> DocumentModel:
+        tenant_id = tenant_id or get_settings().default_tenant_id
         document = DocumentModel(
             id=document_id or uuid.uuid4(),
             knowledge_base_id=knowledge_base_id,
@@ -35,6 +38,7 @@ class DocumentRepository:
             file_type=file_type,
             source_path=source_path,
             status=status,
+            tenant_id=tenant_id,
         )
 
         self.session.add(

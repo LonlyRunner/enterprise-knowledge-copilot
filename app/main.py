@@ -48,6 +48,14 @@ def create_app() -> FastAPI:
             },
         )
 
+    @app.exception_handler(ValueError)
+    async def value_error_handler(request: Request, exc: ValueError):
+        return JSONResponse(status_code=400, content={"code": "BAD_REQUEST", "message": str(exc)})
+
+    @app.exception_handler(FileNotFoundError)
+    async def file_not_found_handler(request: Request, exc: FileNotFoundError):
+        return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "message": str(exc)})
+
     app.include_router(
         api_router,
         prefix="/api/v1",

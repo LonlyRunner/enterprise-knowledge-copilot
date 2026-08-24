@@ -1,4 +1,5 @@
 import json
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +36,7 @@ class RagEvaluator:
     async def evaluate_retrieval(
         self,
         dataset_path: str,
+        knowledge_base_id: uuid.UUID,
         top_k: int = 3,
     ) -> RetrievalEvaluationResult:
 
@@ -77,6 +79,7 @@ class RagEvaluator:
             answerable_total += 1
 
             result = await self.rag_service.retrieve(
+                knowledge_base_id=knowledge_base_id,
                 question=item["question"],
                 top_k=top_k,
             )
@@ -137,6 +140,7 @@ class RagEvaluator:
     async def evaluate_hybrid_retrieval(
             self,
             dataset_path: str,
+            knowledge_base_id: uuid.UUID,
             top_k: int = 3,
             candidate_k: int = 10,
     ):
@@ -167,6 +171,7 @@ class RagEvaluator:
 
             results = (
                 await self.rag_service.retrieve_hybrid(
+                    knowledge_base_id=knowledge_base_id,
                     question=item["question"],
                     top_k=top_k,
                     candidate_k=candidate_k,

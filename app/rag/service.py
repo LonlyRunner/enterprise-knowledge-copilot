@@ -57,11 +57,7 @@ from app.repositories.message import (
 )
 
 from app.rag.context import (
-    ContextDegrader,
-    ContextWindowExceededError,
     ConversationSummarizer,
-    PromptBuilder,
-    TokenGuard,
 )
 
 from app.rag.chat_context_service import (
@@ -71,6 +67,7 @@ from app.rag.chat_context_service import (
 from app.utils.trace import (
     get_trace_id,
 )
+from app.core.config import get_settings
 
 
 logger = logging.getLogger(
@@ -85,6 +82,7 @@ class RagService:
         session: AsyncSession,
     ):
         self.session = session
+        self.settings = get_settings()
 
         self.last_retrieval_latency = 0
 
@@ -182,14 +180,7 @@ class RagService:
         file_path: str,
     ) -> RagIndexResponse:
 
-        path = Path(
-            file_path
-        )
-
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Document not found: {file_path}"
-            )
+        path = self._resolve_document_path(file_path)
 
         loader = (
             create_document_loader(
@@ -322,8 +313,22 @@ class RagService:
             ),
         )
 
+    def _resolve_document_path(self, file_path: str) -> Path:
+        """Resolve a document path while preventing traversal outside storage."""
+        storage_root = Path(self.settings.document_storage_path).resolve()
+        path = Path(file_path).resolve()
+        if not path.is_relative_to(storage_root):
+            raise ValueError(
+                "Document path must be inside the configured document storage directory"
+            )
+        if not path.is_file():
+            raise FileNotFoundError(f"Document not found: {file_path}")
+        return path
+
     async def retrieve_vector(
         self,
+        *,
+        knowledge_base_id: uuid.UUID,
         question: str,
         top_k: int = 5,
     ):
@@ -342,6 +347,7 @@ class RagService:
                     query_embedding
                 ),
                 top_k=top_k,
+                knowledge_base_id=knowledge_base_id,
             )
         )
 
@@ -391,7 +397,8 @@ class RagService:
         rows = (
             await self.chunk_repository
             .list_by_knowledge_base_for_retrieval(
-                knowledge_base_id
+                tenant_id=self.settings.default_tenant_id,
+                knowledge_base_id=knowledge_base_id,
             )
         )
 
@@ -443,6 +450,8 @@ class RagService:
 
     async def retrieve(
         self,
+        *,
+        knowledge_base_id: uuid.UUID,
         question: str,
         top_k: int = 5,
     ) -> RetrievalDebugResponse:
@@ -461,6 +470,7 @@ class RagService:
                     query_embedding
                 ),
                 top_k=top_k,
+                knowledge_base_id=knowledge_base_id,
             )
         )
 
@@ -757,12 +767,8 @@ class RagService:
             top_k,
         )
 
-        retrieval_latency = (
-            timer.elapsed_ms()
-        )
-
         self.last_retrieval_latency = (
-            retrieval_latency
+            timer.elapsed_ms()
         )
 
         logger.info(
@@ -834,26 +840,6 @@ class RagService:
                 "Conversation not found"
             )
 
-        #
-        # 2. 创建 Context Window 相关组件
-        #
-
-        #
-        # 2. 使用 ChatContextService 提供的 Context 能力
-        #
-
-        prompt_builder = PromptBuilder()
-
-        token_guard = TokenGuard(
-            token_counter=(
-                self.chat_context_service.token_counter
-            ),
-            token_budget=(
-                self.chat_context_service.token_budget
-            ),
-        )
-
-        context_degrader = ContextDegrader()
         #
         # 3. 只查询 Summary Checkpoint
         #    之后的消息

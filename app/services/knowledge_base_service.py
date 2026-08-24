@@ -1,4 +1,7 @@
+import logging
+import shutil
 import uuid
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -11,6 +14,10 @@ from app.schemas.knowledge_base import (
     KnowledgeBaseCreateRequest,
     KnowledgeBaseResponse,
 )
+from app.core.config import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeBaseService:
@@ -20,6 +27,7 @@ class KnowledgeBaseService:
         session: AsyncSession,
     ):
         self.session = session
+        self.settings = get_settings()
 
         self.repository = (
             KnowledgeBaseRepository(
@@ -91,3 +99,21 @@ class KnowledgeBaseService:
         )
 
         await self.session.commit()
+
+        # Uploaded files are stored below one directory per knowledge base.
+        # Remove only that exact, validated directory after the DB commit so
+        # a filesystem issue cannot roll back a successful database delete.
+        storage_root = Path(self.settings.document_storage_path).resolve()
+        storage_directory = (storage_root / str(knowledge_base_id)).resolve()
+        if storage_directory.parent == storage_root and storage_directory.name == str(knowledge_base_id):
+            try:
+                if storage_directory.is_symlink():
+                    storage_directory.unlink()
+                elif storage_directory.is_dir():
+                    shutil.rmtree(storage_directory)
+            except OSError:
+                logger.warning(
+                    "Unable to remove knowledge base storage directory %s",
+                    storage_directory,
+                    exc_info=True,
+                )

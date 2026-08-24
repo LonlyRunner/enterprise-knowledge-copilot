@@ -374,12 +374,11 @@ class DocumentService:
         await self.session.commit()
 
         if source_path:
-
-            path = Path(
-                source_path
-            )
-
-            if path.exists():
+            storage_root = Path(
+                self.settings.document_storage_path
+            ).resolve()
+            path = Path(source_path).resolve()
+            if path.is_relative_to(storage_root) and path.is_file():
                 path.unlink()
 
     async def _save_upload(

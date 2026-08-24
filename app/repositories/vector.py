@@ -15,6 +15,7 @@ from app.rag.models import (
 from app.models.document import (
     DocumentModel,
 )
+from app.core.config import get_settings
 
 
 @dataclass
@@ -40,7 +41,9 @@ class PostgresVectorRepository:
             knowledge_base_id: uuid.UUID,
             query_embedding: list[float],
             top_k: int = 5,
+            tenant_id: str | None = None,
     ) -> list[SearchResult]:
+        tenant_id = tenant_id or get_settings().default_tenant_id
         distance = (
             DocumentChunkModel.embedding
             .cosine_distance(
@@ -62,8 +65,8 @@ class PostgresVectorRepository:
                 == DocumentChunkModel.document_id,
             )
             .where(
-                DocumentModel.knowledge_base_id
-                == knowledge_base_id
+                DocumentModel.knowledge_base_id == knowledge_base_id,
+                DocumentChunkModel.tenant_id == tenant_id,
             )
             .order_by(
                 distance.asc()

@@ -2,5 +2,10 @@
 .venv/
 __pycache__/
 *.pyc
+storage/*
+!.gitkeep
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .idea/
 .vscode/

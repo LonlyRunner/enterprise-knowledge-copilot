@@ -1,16 +1,12 @@
-from celery import Celery
+"""Backward-compatible Celery import.
+
+The application has one configured Celery instance in ``app.worker.celery_app``.
+Keeping this alias avoids two competing brokers/task registries.
+"""
+
+from app.worker.celery_app import celery_app
 
 
-celery=Celery(
-    "worker"
-)
+celery = celery_app
 
-
-@celery.task
-def index_document(
-    document_id
-):
-
-    print(
-        "embedding..."
-    )
+__all__ = ["celery", "celery_app"]

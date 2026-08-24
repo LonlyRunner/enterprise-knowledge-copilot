@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import uuid
 
 from app.rag.evaluator import RagEvaluator
 from app.rag.service import RagService
@@ -41,6 +42,7 @@ class RagExperimentRunner:
         self,
         document_path: str,
         dataset_path: str,
+        knowledge_base_id: uuid.UUID,
         configs: list[ExperimentConfig],
     ) -> list[ExperimentResult]:
 
@@ -59,13 +61,15 @@ class RagExperimentRunner:
 
             index_result = (
                 await self.rag_service.index_document(
-                    document_path
+                    knowledge_base_id=knowledge_base_id,
+                    file_path=document_path,
                 )
             )
 
             evaluation = (
                 await self.evaluator.evaluate_retrieval(
                     dataset_path=dataset_path,
+                    knowledge_base_id=knowledge_base_id,
                     top_k=config.top_k,
                 )
             )

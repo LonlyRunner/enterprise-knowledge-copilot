@@ -49,6 +49,7 @@ class EmbeddingClient:
             json={
                 "model": self.model,
                 "input": texts,
+                "dimensions": self.settings.embedding_dimensions,
             },
         )
 
@@ -71,10 +72,24 @@ class EmbeddingClient:
             ),
         )
 
-        return [
+        embeddings = [
             item["embedding"]
             for item in items
         ]
+
+        expected_dimension = self.settings.embedding_dimensions
+        invalid = [
+            len(vector)
+            for vector in embeddings
+            if len(vector) != expected_dimension
+        ]
+        if invalid:
+            raise LLMServiceException(
+                "Embedding dimension mismatch: "
+                f"expected {expected_dimension}, got {invalid[0]}"
+            )
+
+        return embeddings
 
     async def close(self):
         await self.client.aclose()

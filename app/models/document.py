@@ -44,6 +44,8 @@ class DocumentModel(Base):
         String(64),
         nullable=False,
         index=True,
+        default="default",
+        server_default="default",
     )
 
     name: Mapped[str] = mapped_column(

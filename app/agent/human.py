@@ -1,3 +1,9 @@
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+
 class HumanApproval:
 
 
@@ -6,6 +12,6 @@ class HumanApproval:
         content,
     ):
 
-        print(content)
+        logger.info("Human approval requested: %s", content)
 
         return True

@@ -1,4 +1,3 @@
-from pydantic import BaseModel, Field
 import uuid
 from pydantic import BaseModel, Field
 
@@ -37,6 +36,7 @@ class RagQueryResponse(BaseModel):
     sources: list[RagSource]
 
 class RetrievalDebugRequest(BaseModel):
+    knowledge_base_id: uuid.UUID
     question: str = Field(
         ...,
         min_length=1,
@@ -107,9 +107,10 @@ class RagExperimentConfig(BaseModel):
 
 
 class RagExperimentRequest(BaseModel):
+    knowledge_base_id: uuid.UUID
     document_path: str
 
-    configs: list[RagExperimentConfig]
+    configs: list[RagExperimentConfig] = Field(..., min_length=1, max_length=20)
 
 
 class RagExperimentResultResponse(BaseModel):
@@ -141,6 +142,7 @@ class HybridRetrievalDebugRequest(BaseModel):
     )
 
 class RerankDebugRequest(BaseModel):
+    knowledge_base_id: uuid.UUID
 
     question: str = Field(
         ...,
@@ -213,6 +215,7 @@ class RagChatResponse(
 class VectorRetrievalDebugRequest(
     BaseModel
 ):
+    knowledge_base_id: uuid.UUID
 
     question: str = Field(
         ...,

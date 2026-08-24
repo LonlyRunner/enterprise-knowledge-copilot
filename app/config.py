@@ -1,19 +1,3 @@
-from pydantic_settings import BaseSettings
+from app.core.config import Settings, get_settings
 
-
-
-class Settings(BaseSettings):
-
-
-    database_url:str
-
-
-    redis_url:str
-
-
-    jwt_secret:str
-
-
-    class Config:
-
-        env_file=".env"
+__all__ = ["Settings", "get_settings"]

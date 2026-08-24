@@ -14,6 +14,7 @@ from app.models.document_chunk import (
 from app.models.document import (
     DocumentModel,
 )
+from app.core.config import get_settings
 
 class DocumentChunkRepository:
 
@@ -28,7 +29,9 @@ class DocumentChunkRepository:
         *,
         document_id: uuid.UUID,
         chunks: list[dict],
+        tenant_id: str | None = None,
     ) -> list[DocumentChunkModel]:
+        tenant_id = tenant_id or get_settings().default_tenant_id
 
         models = [
             DocumentChunkModel(
@@ -36,6 +39,7 @@ class DocumentChunkRepository:
                 chunk_index=item["chunk_index"],
                 content=item["content"],
                 embedding=item["embedding"],
+                tenant_id=item.get("tenant_id", tenant_id),
             )
             for item in chunks
         ]
@@ -89,12 +93,13 @@ class DocumentChunkRepository:
 
     async def list_by_knowledge_base_for_retrieval(
             self,
-            tenant_id,
+            tenant_id: str | None,
             knowledge_base_id: uuid.UUID,
     ) -> list[tuple[
         DocumentChunkModel,
         str,
     ]]:
+        tenant_id = tenant_id or get_settings().default_tenant_id
         statement = (
             select(
                 DocumentChunkModel,
@@ -105,10 +110,8 @@ class DocumentChunkRepository:
                 DocumentModel.id
                 == DocumentChunkModel.document_id,
             )
-            .where(
-                DocumentModel.knowledge_base_id
-                == knowledge_base_id
-            )
+            .where(DocumentModel.knowledge_base_id == knowledge_base_id,
+                   DocumentChunkModel.tenant_id == tenant_id)
             .order_by(
                 DocumentChunkModel.created_at.asc(),
                 DocumentChunkModel.chunk_index.asc(),
