@@ -1,62 +1,87 @@
-import json
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from app.schemas.chat import (
-    ChatRequest,
-    ChatResponse,
+from app.llm.client import (
+    create_llm_client,
+)
+from app.utils.sse import (
+    encode_sse,
 )
 
-
-
-from app.services.chat_service import ChatService
 
 router = APIRouter()
 
-chat_service = ChatService()
+llm_client = create_llm_client()
 
 
 @router.post(
-    "/chat",
-    response_model=ChatResponse,
+    "/stream-test"
 )
-async def chat(
-    request: ChatRequest,
-) -> ChatResponse:
+async def stream_test():
 
-    return await chat_service.chat(
-        request.message
-    )
+    async def event_generator(
+    ) -> AsyncIterator[str]:
 
+        yield encode_sse(
+            "start",
+            {},
+        )
 
-@router.post("/chat/stream")
-async def stream_chat(
-    request: ChatRequest,
-):
+        try:
 
-    async def event_generator():
-
-        async for chunk in chat_service.stream_chat(
-            request.message
-        ):
-
-            data = json.dumps(
+            messages = [
                 {
-                    "content": chunk
-                },
-                ensure_ascii=False,
+                    "role": "user",
+                    "content": (
+                        "4000元报销需要哪些人审批？"
+                    ),
+                }
+            ]
+
+            async for content in (
+                llm_client.stream_chat(
+                    messages=messages,
+                )
+            ):
+
+                yield encode_sse(
+                    "delta",
+                    {
+                        "content": (
+                            content
+                        ),
+                    },
+                )
+
+            yield encode_sse(
+                "done",
+                {},
             )
 
-            yield f"data: {data}\n\n"
+        except Exception as exc:
 
-        yield "data: [DONE]\n\n"
+            yield encode_sse(
+                "error",
+                {
+                    "message": str(
+                        exc
+                    ),
+                },
+            )
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/event-stream",
+        media_type=(
+            "text/event-stream"
+        ),
         headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
+            "Cache-Control": (
+                "no-cache"
+            ),
+            "Connection": (
+                "keep-alive"
+            ),
         },
     )

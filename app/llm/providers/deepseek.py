@@ -1,6 +1,6 @@
 import asyncio
 import json
-
+from collections.abc import AsyncIterator
 import httpx
 
 from app.core.config import get_settings
@@ -128,71 +128,104 @@ class DeepSeekLLMClient(BaseLLMClient):
         raise LLMServiceException()
 
     async def stream_chat(
-        self,
-        message: str,
-    ):
-        url = f"{self.base_url}/chat/completions"
+            self,
+            messages: list[dict[str, str]],
+    ) -> AsyncIterator[str]:
 
-        try:
-            async with self.client.stream(
-                method="POST",
-                url=url,
-                headers=self._headers(),
-                json=self._payload(
-                    message,
-                    stream=True,
-                ),
+        url = (
+            f"{self.base_url}/chat/completions"
+        )
+
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": (
+                self.settings.llm_temperature
+            ),
+            "stream": True,
+        }
+
+        headers = {
+            "Authorization": (
+                f"Bearer {self.api_key}"
+            ),
+            "Content-Type": (
+                "application/json"
+            ),
+        }
+
+        async with httpx.AsyncClient(
+                timeout=self.settings.llm_timeout
+        ) as client:
+
+            async with client.stream(
+                    "POST",
+                    url,
+                    headers=headers,
+                    json=payload,
             ) as response:
 
-                self._check_response(response)
+                response.raise_for_status()
 
-                async for line in response.aiter_lines():
+                async for line in (
+                        response.aiter_lines()
+                ):
 
                     if not line:
                         continue
 
-                    if not line.startswith("data:"):
+                    if not line.startswith(
+                            "data:"
+                    ):
                         continue
 
-                    data = line.removeprefix(
-                        "data:"
-                    ).strip()
+                    data = (
+                        line
+                        .removeprefix(
+                            "data:"
+                        )
+                        .strip()
+                    )
 
                     if data == "[DONE]":
                         break
 
                     try:
-                        chunk = json.loads(data)
+                        event = (
+                            json.loads(
+                                data
+                            )
+                        )
+
                     except json.JSONDecodeError:
                         continue
 
-                    choices = chunk.get(
-                        "choices",
-                        [],
+                    choices = (
+                            event.get(
+                                "choices"
+                            )
+                            or []
                     )
 
                     if not choices:
                         continue
 
-                    delta = choices[0].get(
-                        "delta",
-                        {},
+                    delta = (
+                            choices[0]
+                            .get(
+                                "delta"
+                            )
+                            or {}
                     )
 
-                    content = delta.get(
-                        "content"
+                    content = (
+                        delta.get(
+                            "content"
+                        )
                     )
 
                     if content:
                         yield content
-
-        except httpx.TimeoutException:
-            raise LLMTimeoutException()
-
-        except httpx.RequestError as exc:
-            raise LLMServiceException(
-                str(exc)
-            )
 
     def _check_response(
         self,
