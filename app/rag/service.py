@@ -57,16 +57,15 @@ from app.repositories.message import (
 )
 
 from app.rag.context import (
-    ContextBuilder,
     ContextDegrader,
     ContextWindowExceededError,
     ConversationSummarizer,
     PromptBuilder,
-    TokenAwareHistorySelector,
-    TokenAwareRagContextSelector,
-    TokenBudget,
-    TokenCounter,
     TokenGuard,
+)
+
+from app.rag.chat_context_service import (
+    ChatContextService,
 )
 
 
@@ -83,6 +82,17 @@ class RagService:
     ):
         self.session = session
 
+        self.llm_client = (
+            create_llm_client()
+        )
+
+        self.chat_context_service = (
+            ChatContextService(
+                session=session,
+                llm_client=self.llm_client,
+            )
+        )
+
         self.splitter = (
             RecursiveTextSplitter(
                 chunk_size=400,
@@ -94,9 +104,6 @@ class RagService:
             EmbeddingClient()
         )
 
-        self.llm_client = (
-            create_llm_client()
-        )
 
         self.document_repository = (
             DocumentRepository(
@@ -725,6 +732,22 @@ class RagService:
             top_k: int = 3,
     ):
 
+        return await self._chat_v2(
+            knowledge_base_id=knowledge_base_id,
+            conversation_id=conversation_id,
+            question=question,
+            top_k=top_k,
+        )
+
+    async def _chat_v2(
+            self,
+            *,
+            knowledge_base_id,
+            conversation_id,
+            question,
+            top_k,
+    ):
+
         #
         # 1. 验证 Conversation
         #
@@ -749,29 +772,20 @@ class RagService:
         #
         # 2. 创建 Context Window 相关组件
         #
-        token_counter = TokenCounter()
-        token_budget = TokenBudget()
 
-        history_selector = TokenAwareHistorySelector(
-            token_counter=token_counter,
-        )
-
-        rag_context_selector = TokenAwareRagContextSelector(
-            token_counter=token_counter,
-        )
-
-        context_builder = ContextBuilder(
-            token_counter=token_counter,
-            token_budget=token_budget,
-            history_selector=history_selector,
-            rag_context_selector=rag_context_selector,
-        )
+        #
+        # 2. 使用 ChatContextService 提供的 Context 能力
+        #
 
         prompt_builder = PromptBuilder()
 
         token_guard = TokenGuard(
-            token_counter=token_counter,
-            token_budget=token_budget,
+            token_counter=(
+                self.chat_context_service.token_counter
+            ),
+            token_budget=(
+                self.chat_context_service.token_budget
+            ),
         )
 
         context_degrader = ContextDegrader()
@@ -797,7 +811,9 @@ class RagService:
         # 4. 构建 Conversation Context
         #
         runtime_context = (
-            context_builder.build_conversation_context(
+            self.chat_context_service
+            .context_builder
+            .build_conversation_context(
                 summary=conversation.summary,
                 history_candidates=history_candidates,
                 question=question,
@@ -855,7 +871,9 @@ class RagService:
             )
 
             runtime_context = (
-                context_builder.build_conversation_context(
+                self.chat_context_service
+                .context_builder
+                .build_conversation_context(
                     summary=conversation.summary,
                     history_candidates=history_candidates,
                     question=question,
@@ -928,7 +946,8 @@ class RagService:
         #     Runtime Context
         #
         runtime_context = (
-            context_builder
+            self.chat_context_service
+            .context_builder
             .attach_rag_context(
                 context=(
                     runtime_context
