@@ -61,3 +61,16 @@ class RetrievalEvaluator:
                 return 1 / (index + 1)
 
         return 0
+
+    def hit_rate(
+            retrieved,
+            relevant,
+    ):
+
+        return (
+            1
+            if set(retrieved)
+               &
+               set(relevant)
+            else 0
+        )

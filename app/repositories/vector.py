@@ -90,22 +90,27 @@ class PostgresVectorRepository:
                 cosine_distance
             )
             )
-
             chunk = DocumentChunk(
-                id=str(model.id),
-                content=model.content,
+
+                id=str(
+                    model.id
+                ),
+
+                document_id=str(
+                    model.document_id
+                ),
+
+                chunk_index=(
+                    model.chunk_index
+                ),
+
+                content=(
+                    model.content
+                ),
+
                 metadata={
-                    "document_id": str(
-                        model.document_id
-                    ),
                     "chunk_index": (
                         model.chunk_index
-                    ),
-                    "source": (
-                        document_name
-                    ),
-                    "knowledge_base_id": str(
-                        knowledge_base_id
                     ),
                 },
             )

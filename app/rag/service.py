@@ -400,28 +400,34 @@ class RagService:
         ] = []
 
         for (
-            model,
-            document_name,
+                model,
+                document_name,
         ) in rows:
-
             chunks.append(
                 DocumentChunk(
+
                     id=str(
                         model.id
                     ),
+
+                    document_id=str(
+                        model.document_id
+                    ),
+
+                    chunk_index=(
+                        model.chunk_index
+                    ),
+
                     content=(
                         model.content
                     ),
+
                     metadata={
-                        "document_id": str(
-                            model.document_id
-                        ),
-                        "knowledge_base_id": str(
-                            knowledge_base_id
-                        ),
+
                         "source": (
                             document_name
                         ),
+
                         "chunk_index": (
                             model.chunk_index
                         ),
@@ -976,26 +982,33 @@ class RagService:
         #
         # 12. Retrieval Result
         #     -> DocumentChunk
-        #
         rag_candidates = [
             DocumentChunk(
                 id=str(
                     item["chunk_id"]
                 ),
+
+                document_id="",
+
+                chunk_index=(
+                    item["chunk_index"]
+                ),
+
                 content=(
                     item["content"]
                 ),
+
                 metadata={
                     "source": (
                         item["source"]
                     ),
+
                     "chunk_index": (
                         item["chunk_index"]
                     ),
                 },
             )
-            for item
-            in retrieval_results
+            for item in retrieval_results
         ]
 
         #
@@ -1179,13 +1192,6 @@ class RagService:
                     "total": metrics.total_cost,
                 },
             },
-            "answer": answer,
-
-            "sources": [
-                chunk_id
-            ],
-
-            "metrics": metrics
 
 
         }

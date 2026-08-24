@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -16,7 +15,6 @@ from sqlalchemy.orm import (
     relationship,
 )
 
-from sqlalchemy import ForeignKey
 
 from typing import TYPE_CHECKING
 
