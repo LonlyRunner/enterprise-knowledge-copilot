@@ -13,7 +13,9 @@ from app.rag.context.token_budget import (
 from app.rag.context.token_counter import (
     TokenCounter,
 )
-
+from app.rag.context.metrics import (
+    ContextMetrics,
+)
 
 class MessageLike(Protocol):
     role: str
@@ -41,6 +43,8 @@ class RagRuntimeContext:
 
     history_truncated: bool
     rag_context_truncated: bool
+
+    metrics: ContextMetrics | None = None
 
     @property
     def total_tokens(
@@ -160,7 +164,20 @@ class ContextBuilder:
                 history_selection.truncated
             ),
             rag_context_truncated=False,
+
+            metrics=ContextMetrics(
+                summary_tokens=summary_tokens,
+                history_tokens=history_selection.used_tokens,
+                rag_context_tokens=0,
+                question_tokens=question_tokens,
+                selected_history_count=len(
+                    history_selection.messages
+                ),
+                selected_chunk_count=0,
+            )
         )
+
+
 
     def attach_rag_context(
         self,
@@ -223,6 +240,19 @@ class ContextBuilder:
             rag_context_truncated=(
                 rag_selection.truncated
             ),
+
+            metrics=ContextMetrics(
+                summary_tokens=context.summary_tokens,
+                history_tokens=context.history_tokens,
+                rag_context_tokens=rag_selection.used_tokens,
+                question_tokens=context.question_tokens,
+                selected_history_count=len(
+                    context.history
+                ),
+                selected_chunk_count=len(
+                    rag_selection.chunks
+                ),
+            )
         )
 
     def _calculate_history_budget(
