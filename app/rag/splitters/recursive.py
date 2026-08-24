@@ -70,6 +70,9 @@ class RecursiveTextSplitter:
                         f"{document.metadata.get('source', 'document')}"
                         f"-{index}"
                     ),
+                    tenant_id=document.tenant_id,
+                    document_id=document.id,
+                    chunk_index=index,
                     content=content,
                     metadata=metadata,
                 )

@@ -189,7 +189,8 @@ class RagService:
         )
 
         document = loader.load(
-            file_path
+            file_path,
+            tenant_id=self.settings.default_tenant_id,
         )
 
         chunks = (

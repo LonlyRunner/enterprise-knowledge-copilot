@@ -26,6 +26,9 @@ class TextSplitter:
         self,
         text: str,
         source: str = "unknown",
+        *,
+        tenant_id: str = "default",
+        document_id: str = "",
     ) -> list[DocumentChunk]:
 
         text = text.strip()
@@ -48,6 +51,9 @@ class TextSplitter:
                 chunks.append(
                     DocumentChunk(
                         id=f"{source}-{index}",
+                        tenant_id=tenant_id,
+                        document_id=document_id,
+                        chunk_index=index,
                         content=chunk_text,
                         metadata={
                             "source": source,

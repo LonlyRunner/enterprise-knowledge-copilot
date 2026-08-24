@@ -104,7 +104,9 @@ class DocumentIndexService:
 
             parsed_document = (
                 loader.load(
-                    str(path)
+                    str(path),
+                    document_id=str(document.id),
+                    tenant_id=document.tenant_id,
                 )
             )
 
