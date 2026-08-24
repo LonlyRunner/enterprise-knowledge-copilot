@@ -729,6 +729,7 @@ class RagService:
                 "chunk_id": (
                     item.chunk.id
                 ),
+                "tenant_id": item.chunk.tenant_id,
                 "content": (
                     item.chunk.content
                 ),
@@ -976,7 +977,10 @@ class RagService:
                     item["chunk_id"]
                 ),
 
-                # tenant_id=model.tenant_id,
+                tenant_id=item.get(
+                    "tenant_id",
+                    self.settings.default_tenant_id,
+                ),
 
                 document_id="",
 

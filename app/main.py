@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
+import logging
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
@@ -11,6 +14,7 @@ from app.db.session import engine
 
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -56,10 +60,29 @@ def create_app() -> FastAPI:
     async def file_not_found_handler(request: Request, exc: FileNotFoundError):
         return JSONResponse(status_code=404, content={"code": "NOT_FOUND", "message": str(exc)})
 
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        logger.exception("Unhandled API error: %s %s", request.method, request.url.path, exc_info=exc)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "服务器内部错误，请查看后端日志",
+            },
+        )
+
     app.include_router(
         api_router,
         prefix="/api/v1",
     )
+
+    frontend_directory = Path(__file__).resolve().parent.parent / "frontend"
+    if frontend_directory.is_dir():
+        app.mount(
+            "/ui",
+            StaticFiles(directory=frontend_directory, html=True),
+            name="frontend",
+        )
 
     return app
 

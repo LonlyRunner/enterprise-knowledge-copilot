@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>星云科技有限公司 · 知识库联调台</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">星</div>
+          <div>
+            <div class="brand-name">星云科技有限公司</div>
+            <div class="brand-subtitle">企业知识库联调台</div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <label class="api-url-label" for="apiBase">后端地址</label>
+          <input id="apiBase" class="api-url" value="/api/v1" aria-label="后端 API 地址" />
+          <button id="healthButton" class="button button-light">检查服务</button>
+          <span id="healthStatus" class="status-pill status-idle">未检查</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="hero-card">
+          <div>
+            <p class="eyebrow">INTERNAL KNOWLEDGE COPILOT</p>
+            <h1>把企业制度，变成可对话的知识资产。</h1>
+            <p class="hero-copy">用于联调知识库、文档索引、会话上下文和 RAG 回答链路。所有请求均直接发送到当前后端。</p>
+          </div>
+          <div class="hero-metrics">
+            <div><strong id="kbCount">0</strong><span>知识库</span></div>
+            <div><strong id="docCount">0</strong><span>文档</span></div>
+            <div><strong id="conversationCount">0</strong><span>会话</span></div>
+          </div>
+        </section>
+
+        <div id="notice" class="notice" role="status" hidden></div>
+
+        <div class="content-grid">
+          <aside class="sidebar">
+            <section class="panel">
+              <div class="panel-heading">
+                <div><span class="panel-kicker">01</span><h2>知识库</h2></div>
+                <button id="refreshKbButton" class="icon-button" title="刷新知识库">↻</button>
+              </div>
+              <div id="knowledgeBaseList" class="list empty-list">正在加载…</div>
+              <form id="createKbForm" class="inline-form">
+                <input id="kbName" required maxlength="255" value="星云科技有限公司知识库" placeholder="新知识库名称" />
+                <button class="button button-primary" type="submit">新建</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <div><span class="panel-kicker">02</span><h2>文档索引</h2></div>
+              </div>
+              <p class="helper-text">上传后由 Celery worker 异步建立向量索引。</p>
+              <form id="uploadForm" class="upload-form">
+                <input id="documentFile" type="file" accept=".txt,.md,.markdown,.docx,.pdf" required />
+                <button class="button button-primary full-width" type="submit">上传并索引</button>
+              </form>
+              <div id="documentList" class="list empty-list">请选择知识库</div>
+            </section>
+          </aside>
+
+          <section class="chat-panel panel">
+            <div class="chat-header">
+              <div>
+                <span class="panel-kicker">03 · RAG CHAT</span>
+                <h2>知识库问答</h2>
+                <p id="activeContext" class="helper-text">请选择知识库并创建会话</p>
+              </div>
+              <div class="chat-actions">
+                <button id="newConversationButton" class="button button-light" disabled>新建会话</button>
+                <button id="clearChatButton" class="button button-ghost">清空消息</button>
+              </div>
+            </div>
+
+            <div class="conversation-bar">
+              <label for="conversationSelect">当前会话</label>
+              <select id="conversationSelect" disabled><option>请先选择知识库</option></select>
+            </div>
+
+            <div id="messageList" class="message-list">
+              <div class="welcome-message">
+                <div class="welcome-icon">✦</div>
+                <h3>你好，我是星云知识助手</h3>
+                <p>选择知识库、创建会话后，可以试试：</p>
+                <div class="suggestion-list">
+                  <button class="suggestion">入职两年有几天年假？</button>
+                  <button class="suggestion">费用报销需要哪些审批？</button>
+                  <button class="suggestion">可以把公司源代码发给外部 AI 吗？</button>
+                </div>
+              </div>
+            </div>
+
+            <form id="chatForm" class="composer">
+              <textarea id="questionInput" rows="2" maxlength="5000" placeholder="输入关于星云科技有限公司制度、报销、休假或安全规范的问题…" disabled></textarea>
+              <div class="composer-footer">
+                <span class="helper-text">回答严格基于当前知识库内容</span>
+                <button id="sendButton" class="button button-primary send-button" type="submit" disabled>发送 <span>⌘ ↵</span></button>
+              </div>
+            </form>
+          </section>
+        </div>
+
+        <section class="debug-panel panel">
+          <div class="panel-heading">
+            <div><span class="panel-kicker">04 · DEBUG</span><h2>最近一次请求</h2></div>
+            <button id="copyDebugButton" class="button button-ghost">复制 JSON</button>
+          </div>
+          <pre id="debugOutput">等待请求…</pre>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
