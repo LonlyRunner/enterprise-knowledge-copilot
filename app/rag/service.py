@@ -981,7 +981,11 @@ class RagService:
         #
         # 14. PromptBuilder
         #
-        result = (
+        (
+            result,
+            runtime_context,
+            degradation_attempt,
+        ) = (
             await self.chat_context_service
             .generate_answer(
                 runtime_context=runtime_context,
@@ -994,7 +998,11 @@ class RagService:
         #
         # 17. LLM Generation
         #
-        result = (
+        (
+            result,
+            runtime_context,
+            degradation_attempt,
+        ) = (
             await self.chat_context_service
             .generate_answer(
                 runtime_context=runtime_context,
@@ -1056,21 +1064,44 @@ class RagService:
             in retrieval_results
         ]
 
+        context_debug = {
+            "summary_tokens": (
+                runtime_context.summary_tokens
+            ),
+
+            "history_tokens": (
+                runtime_context.history_tokens
+            ),
+
+            "rag_context_tokens": (
+                runtime_context.rag_context_tokens
+            ),
+
+            "question_tokens": (
+                runtime_context.question_tokens
+            ),
+
+            "degradation_attempts": (
+                degradation_attempt
+            ),
+
+            "selected_history_count": (
+                len(runtime_context.history)
+            ),
+
+            "selected_chunk_count": (
+                len(runtime_context.rag_chunks)
+            ),
+        }
         #
         # 20. Response
         #
         return {
-            "conversation_id": (
-                conversation_id
-            ),
-            "original_question": (
-                question
-            ),
-            "rewritten_question": (
-                rewritten_question
-            ),
-            "answer": (
-                result
-            ),
+            "conversation_id": conversation_id,
+
+            "answer": result,
+
             "sources": sources,
+
+            "context_debug": context_debug,
         }

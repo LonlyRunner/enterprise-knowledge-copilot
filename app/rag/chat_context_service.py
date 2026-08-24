@@ -240,4 +240,8 @@ class ChatContextService:
             )
         )
 
-        return result.content
+        return (
+            result.content,
+            runtime_context,
+            degradation_attempt,
+        )
