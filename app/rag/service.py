@@ -1178,5 +1178,14 @@ class RagService:
                 "cost": {
                     "total": metrics.total_cost,
                 },
-            }
+            },
+            "answer": answer,
+
+            "sources": [
+                chunk_id
+            ],
+
+            "metrics": metrics
+
+
         }

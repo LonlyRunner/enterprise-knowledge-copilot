@@ -1,0 +1,15 @@
+[
+    {
+        "id":"case_001",
+
+        "question":
+        "4000元报销需要哪些审批？",
+
+        "expected_answer":
+        "4000元报销需要部门经理审批",
+
+        "relevant_chunk_ids":[
+            "chunk_001"
+        ]
+    }
+]
