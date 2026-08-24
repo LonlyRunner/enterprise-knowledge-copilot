@@ -15,6 +15,7 @@ from app.rag.context import (
     TokenCounter,
     TokenGuard,
 )
+from app.utils.timer import Timer
 
 from app.repositories.conversation import (
     ConversationRepository,
@@ -228,6 +229,9 @@ class ChatContextService:
                     degraded_context
                 )
 
+        timer = Timer()
+
+        timer.start()
         result = (
             await self.llm_client.chat(
                 message=(
@@ -238,6 +242,18 @@ class ChatContextService:
         """.strip()
                 )
             )
+        )
+
+        llm_latency_ms = (
+            timer.elapsed_ms()
+        )
+
+        logger.info(
+            "llm metrics "
+            "conversation_id=%s "
+            "latency_ms=%s",
+            conversation_id,
+            llm_latency_ms,
         )
 
         return (

@@ -1099,6 +1099,10 @@ class RagService:
         return {
             "conversation_id": conversation_id,
 
+            "original_question": question,
+
+            "rewritten_question": rewritten_question,
+
             "answer": result,
 
             "sources": sources,
