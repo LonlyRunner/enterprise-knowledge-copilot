@@ -981,76 +981,25 @@ class RagService:
         #
         # 14. PromptBuilder
         #
-        max_degradation_attempts = 50
-        degradation_attempt = 0
-
-        while True:
-
-            built_prompt = (
-                prompt_builder.build_answer_prompt(
-                    summary=runtime_context.summary,
-                    history=runtime_context.history,
-                    rag_chunks=runtime_context.rag_chunks,
-                    question=question,
-                )
+        result = (
+            await self.chat_context_service
+            .generate_answer(
+                runtime_context=runtime_context,
+                question=question,
+                conversation_id=conversation.id,
             )
-
-            try:
-
-                token_guard_result = (
-                    token_guard.validate(
-                        built_prompt
-                    )
-                )
-
-                break
-
-            except ContextWindowExceededError:
-
-                degradation_attempt += 1
-
-                logger.warning(
-                    "context window exceeded: "
-                    "conversation_id=%s "
-                    "attempt=%s "
-                    "max_attempts=%s",
-                    conversation.id,
-                    degradation_attempt,
-                    max_degradation_attempts,
-                )
-
-                if (
-                        degradation_attempt
-                        > max_degradation_attempts
-                ):
-                    raise
-
-                degraded_context = (
-                    context_degrader.degrade(
-                        runtime_context
-                    )
-                )
-
-                if degraded_context is None:
-                    raise
-
-                runtime_context = (
-                    degraded_context
-                )
+        )
 
 
         #
         # 17. LLM Generation
         #
-        final_prompt = f"""
-        {built_prompt.system_prompt}
-
-        {built_prompt.user_prompt}
-        """.strip()
-
         result = (
-            await self.llm_client.chat(
-                final_prompt
+            await self.chat_context_service
+            .generate_answer(
+                runtime_context=runtime_context,
+                question=question,
+                conversation_id=conversation.id,
             )
         )
 
@@ -1073,7 +1022,7 @@ class RagService:
                 ),
                 role="assistant",
                 content=(
-                    result.content
+                    result
                 ),
             )
 
@@ -1121,7 +1070,7 @@ class RagService:
                 rewritten_question
             ),
             "answer": (
-                result.content
+                result
             ),
             "sources": sources,
         }

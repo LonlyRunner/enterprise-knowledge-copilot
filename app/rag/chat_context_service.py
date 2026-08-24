@@ -146,3 +146,82 @@ class ChatContextService:
             conversation,
             runtime_context,
         )
+
+    async def generate_answer(
+            self,
+            *,
+            runtime_context,
+            question: str,
+            conversation_id: UUID,
+    ):
+
+        max_degradation_attempts = 50
+
+        degradation_attempt = 0
+
+        while True:
+
+            built_prompt = (
+                self.prompt_builder
+                .build_answer_prompt(
+                    summary=runtime_context.summary,
+                    history=runtime_context.history,
+                    rag_chunks=runtime_context.rag_chunks,
+                    question=question,
+                )
+            )
+
+            try:
+
+                self.token_guard.validate(
+                    built_prompt
+                )
+
+                break
+
+
+            except ContextWindowExceededError:
+
+                degradation_attempt += 1
+
+                logger.warning(
+                    "context overflow "
+                    "conversation_id=%s "
+                    "attempt=%s",
+                    conversation_id,
+                    degradation_attempt,
+                )
+
+                if (
+                        degradation_attempt
+                        > max_degradation_attempts
+                ):
+                    raise
+
+                degraded_context = (
+                    self.context_degrader
+                    .degrade(
+                        runtime_context
+                    )
+                )
+
+                if degraded_context is None:
+                    raise
+
+                runtime_context = (
+                    degraded_context
+                )
+
+        result = (
+            await self.llm_client.chat(
+                message=(
+                    f"""
+        {built_prompt.system_prompt}
+
+        {built_prompt.user_prompt}
+        """.strip()
+                )
+            )
+        )
+
+        return result.content
