@@ -129,12 +129,15 @@ class DeepSeekLLMClient(BaseLLMClient):
 
     async def stream_chat(
             self,
-            messages: list[dict[str, str]],
+            messages: str | list[dict[str, str]],
     ) -> AsyncIterator[str]:
 
         url = (
             f"{self.base_url}/chat/completions"
         )
+
+        if isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
 
         payload = {
             "model": self.model,

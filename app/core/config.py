@@ -25,10 +25,16 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://127.0.0.1:6379/0"
     celery_result_backend: str = "redis://127.0.0.1:6379/1"
     redis_lock_url: str = "redis://127.0.0.1:6379/2"
+    redis_cache_url: str = "redis://127.0.0.1:6379/3"
     document_lock_ttl_seconds: int = 300
     # Empty is allowed for local imports/tests, but authentication must reject it.
     jwt_secret: str = ""
+    auth_enabled: bool = False
+    access_token_expire_minutes: int = 120
     default_tenant_id: str = "default"
+    vector_store_backend: str = "postgres"
+    milvus_uri: str = "http://127.0.0.1:19530"
+    milvus_collection: str = "enterprise_document_chunks"
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
 @lru_cache

@@ -28,6 +28,9 @@ from sqlalchemy.ext.asyncio import (
 from app.db.dependencies import (
     get_db,
 )
+from app.auth.rbac import require_permission
+from app.auth.models import User
+from app.cache.semantic import SemanticCache
 
 from app.rag.context import TokenBudget, TokenCounter
 router = APIRouter()
@@ -48,12 +51,18 @@ async def index_document(
         session=db
     )
 
-    return await rag_service.index_document(
+    response = await rag_service.index_document(
         knowledge_base_id=(
             request.knowledge_base_id
         ),
         file_path=request.file_path,
     )
+    cache = SemanticCache()
+    try:
+        await cache.invalidate_knowledge_base(str(request.knowledge_base_id))
+    finally:
+        await cache.close()
+    return response
 
 
 @router.post(
@@ -66,19 +75,28 @@ async def query_rag(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("chat:use")),
 ):
 
     rag_service = RagService(
         session=db
     )
 
-    return await rag_service.query(
-        knowledge_base_id=(
-            request.knowledge_base_id
-        ),
-        question=request.question,
-        top_k=request.top_k,
-    )
+    cache = SemanticCache()
+    try:
+        cached = await cache.get(str(request.knowledge_base_id), request.question, request.top_k)
+        if cached is not None:
+            return cached
+        response = await rag_service.query(
+            knowledge_base_id=request.knowledge_base_id,
+            question=request.question,
+            top_k=request.top_k,
+        )
+        payload = response.model_dump(mode="json")
+        await cache.set(str(request.knowledge_base_id), request.question, request.top_k, payload)
+        return payload
+    finally:
+        await cache.close()
 
 @router.post(
     "/rag/evaluation/retrieval",
@@ -278,6 +296,7 @@ async def rag_chat(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("chat:use")),
 ):
 
     rag_service = (

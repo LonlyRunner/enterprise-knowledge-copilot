@@ -1,20 +1,26 @@
 from contextlib import asynccontextmanager
 import logging
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.exceptions import AppException
 from app.db import init_database
 from app.db.session import engine
+from app.observability import setup_opentelemetry
 
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+
+HTTP_REQUESTS = Counter("http_requests_total", "Total HTTP requests", ["method", "path", "status"])
+HTTP_LATENCY = Histogram("http_request_duration_seconds", "HTTP request latency", ["method", "path"])
 
 
 @asynccontextmanager
@@ -75,6 +81,22 @@ def create_app() -> FastAPI:
         api_router,
         prefix="/api/v1",
     )
+
+    @app.middleware("http")
+    async def prometheus_middleware(request: Request, call_next):
+        started = time.perf_counter()
+        response = await call_next(request)
+        path = request.url.path if request.url.path != "/metrics" else "/metrics"
+        HTTP_REQUESTS.labels(request.method, path, str(response.status_code)).inc()
+        HTTP_LATENCY.labels(request.method, path).observe(time.perf_counter() - started)
+        return response
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics():
+        from starlette.responses import Response
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+    setup_opentelemetry(app)
 
     frontend_directory = Path(__file__).resolve().parent.parent / "frontend"
     if frontend_directory.is_dir():

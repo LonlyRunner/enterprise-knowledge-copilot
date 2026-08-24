@@ -158,17 +158,66 @@ function appendMessage(role, content, sources = []) {
   list.scrollTop = list.scrollHeight;
 }
 
+function createStreamingAssistant() {
+  const list = $("messageList");
+  const welcome = list.querySelector(".welcome-message");
+  if (welcome) welcome.remove();
+  const item = document.createElement("div");
+  item.className = "message assistant";
+  item.innerHTML = '<div class="avatar">星</div><div><div class="bubble streaming-answer"></div></div>';
+  list.appendChild(item);
+  return item.querySelector(".streaming-answer");
+}
+
+async function consumeSse(response, onEvent) {
+  if (!response.ok || !response.body) throw new Error(`${response.status}: 无法建立流式连接`);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() || "";
+    for (const frame of frames) {
+      const event = frame.match(/^event:\s*(.+)$/m)?.[1] || "message";
+      const dataLine = frame.match(/^data:\s*(.+)$/m)?.[1] || "{}";
+      try { onEvent(event, JSON.parse(dataLine)); } catch { /* ignore malformed keep-alive frames */ }
+    }
+    if (done) break;
+  }
+}
+
 async function sendQuestion(question) {
   if (!question.trim() || !state.activeKnowledgeBaseId || !state.activeConversationId) return;
   appendMessage("user", question.trim());
   $("questionInput").value = "";
   $("sendButton").disabled = true;
   try {
-    const result = await request("/rag/chat", {
+    const response = await fetch(`${apiBase()}/rag/chat/stream`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ knowledge_base_id: state.activeKnowledgeBaseId, conversation_id: state.activeConversationId, question: question.trim(), top_k: 3 }),
     });
-    appendMessage("assistant", result.answer || "根据当前知识库无法确定。", result.sources || []);
+    const answerNode = createStreamingAssistant();
+    let answer = "";
+    let sources = [];
+    await consumeSse(response, (event, data) => {
+      if (event === "delta") {
+        answer += data.content || "";
+        answerNode.textContent = answer;
+        $("messageList").scrollTop = $("messageList").scrollHeight;
+      } else if (event === "sources") {
+        sources = data.sources || [];
+        const sourceNode = document.createElement("div");
+        sourceNode.className = "sources";
+        sourceNode.textContent = sources.length ? `引用 ${sources.length} 个片段：${sources.map((source) => source.source || "未命名文档").join("、")}` : "";
+        answerNode.appendChild(sourceNode);
+      } else if (event === "error") {
+        throw new Error(data.message || "流式问答失败");
+      }
+      renderDebug({ path: "/rag/chat/stream", event, data });
+    });
+    if (!answer) answerNode.textContent = "根据当前知识库无法确定。";
     setNotice("回答完成。可在下方 DEBUG 区查看原始响应。", false);
   } catch (error) {
     appendMessage("assistant", `请求失败：${error.message}`);

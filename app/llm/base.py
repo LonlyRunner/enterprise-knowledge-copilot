@@ -29,6 +29,6 @@ class BaseLLMClient(ABC):
     @abstractmethod
     async def stream_chat(
         self,
-        message: str,
+        messages: str | list[dict[str, str]],
     ):
         pass

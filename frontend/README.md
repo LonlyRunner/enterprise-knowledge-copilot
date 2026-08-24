@@ -14,7 +14,7 @@ http://localhost:8000/ui/
 - 知识库创建、列表和切换
 - `.txt`、`.md`、`.docx`、`.pdf` 文档上传
 - 会话创建和切换
-- `/api/v1/rag/chat` RAG 问答
-- 最近一次请求的原始 JSON 调试信息
+- `/api/v1/rag/chat/stream` SSE 增量 RAG 问答和引用展示
+- 最近一次请求的 SSE 事件调试信息
 
 页面默认使用 `/api/v1`，因此和后端同源部署时不需要额外配置 CORS。

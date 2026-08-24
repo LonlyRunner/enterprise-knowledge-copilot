@@ -13,6 +13,7 @@ from app.models.conversation import (
 from app.models.message import (
     MessageModel,
 )
+from app.models.user import UserModel
 
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "DocumentChunkModel",
     "ConversationModel",
     "MessageModel",
+    "UserModel",
 ]

@@ -10,4 +10,6 @@ class User:
 
     password_hash:str
 
-    tenant_id:str
+    tenant_id: str
+
+    role: str = "employee"

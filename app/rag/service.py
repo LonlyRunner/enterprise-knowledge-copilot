@@ -49,6 +49,7 @@ from app.repositories.document_chunk import (
 from app.repositories.vector import (
     PostgresVectorRepository,
 )
+from app.rag.milvus_store import MilvusVectorRepository
 from app.repositories.conversation import (
     ConversationRepository,
 )
@@ -121,11 +122,10 @@ class RagService:
             )
         )
 
-        self.vector_repository = (
-            PostgresVectorRepository(
-                session
-            )
-        )
+        if self.settings.vector_store_backend.lower() == "milvus":
+            self.vector_repository = MilvusVectorRepository()
+        else:
+            self.vector_repository = PostgresVectorRepository(session)
 
         self.bm25_retriever = (
             BM25Retriever()
@@ -269,6 +269,22 @@ class RagService:
                     chunks=chunk_data,
                 )
             )
+
+            if self.settings.vector_store_backend.lower() == "milvus":
+                await self.vector_repository.insert(
+                    knowledge_base_id=knowledge_base_id,
+                    tenant_id=self.settings.default_tenant_id,
+                    chunks=[
+                        {
+                            "id": model.id,
+                            "document_id": document_model.id,
+                            "chunk_index": model.chunk_index,
+                            "content": model.content,
+                            "embedding": embedding,
+                        }
+                        for model, embedding in zip(chunk_models, embeddings)
+                    ],
+                )
 
             for (
                 chunk,
@@ -810,6 +826,91 @@ class RagService:
             question=question,
             top_k=top_k,
         )
+
+    async def chat_stream(
+        self,
+        *,
+        knowledge_base_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        question: str,
+        top_k: int = 3,
+    ):
+        """Stream the LLM answer while reusing the full RAG preparation path."""
+        conversation = await self.conversation_repository.get_by_id_and_knowledge_base(
+            conversation_id=conversation_id, knowledge_base_id=knowledge_base_id
+        )
+        if conversation is None:
+            raise ValueError("Conversation not found")
+
+        history_candidates = await self.message_repository.list_after_checkpoint(
+            conversation_id=conversation.id,
+            checkpoint_message_id=conversation.summary_message_id,
+            limit=200,
+        )
+        runtime_context = self.chat_context_service.context_builder.build_conversation_context(
+            summary=conversation.summary,
+            history_candidates=history_candidates,
+            question=question,
+        )
+        history = [{"role": message.role, "content": message.content} for message in runtime_context.history]
+        rewritten_question = await self.query_rewriter.rewrite(
+            question=question, history=history, summary=runtime_context.summary
+        )
+        retrieval_results = await self.retrieve_with_rerank(
+            knowledge_base_id=knowledge_base_id,
+            question=rewritten_question,
+            top_k=top_k,
+            candidate_k=max(top_k * 3, 10),
+        )
+        rag_candidates = [
+            DocumentChunk(
+                id=str(item["chunk_id"]),
+                tenant_id=item.get("tenant_id", self.settings.default_tenant_id),
+                document_id="",
+                chunk_index=item["chunk_index"],
+                content=item["content"],
+                metadata={"source": item["source"], "chunk_index": item["chunk_index"]},
+            )
+            for item in retrieval_results
+        ]
+        runtime_context = self.chat_context_service.context_builder.attach_rag_context(
+            context=runtime_context, rag_candidates=rag_candidates
+        )
+
+        built_prompt = self.chat_context_service.prompt_builder.build_answer_prompt(
+            summary=runtime_context.summary,
+            history=runtime_context.history,
+            rag_chunks=runtime_context.rag_chunks,
+            question=question,
+        )
+        self.chat_context_service.token_guard.validate(built_prompt)
+        messages = [
+            {"role": "system", "content": built_prompt.system_prompt},
+            {"role": "user", "content": built_prompt.user_prompt},
+        ]
+        answer_parts: list[str] = []
+        async for delta in self.llm_client.stream_chat(messages=messages):
+            answer_parts.append(delta)
+            yield {"event": "delta", "data": {"content": delta}}
+
+        answer = "".join(answer_parts)
+        try:
+            await self.message_repository.create(conversation_id=conversation_id, role="user", content=question)
+            await self.message_repository.create(conversation_id=conversation_id, role="assistant", content=answer)
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        sources = [
+            RagSource(content=item["content"], score=item["rerank_score"], source=item["source"], chunk_index=item["chunk_index"])
+            for item in retrieval_results
+        ]
+        yield {"event": "sources", "data": {"sources": [source.model_dump(mode="json") for source in sources]}}
+        yield {
+            "event": "done",
+            "data": {"conversation_id": str(conversation_id), "rewritten_question": rewritten_question},
+        }
 
     async def _chat_v2(
             self,

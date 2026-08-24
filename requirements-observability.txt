@@ -1,0 +1,5 @@
+-r requirements.txt
+opentelemetry-api>=1.26,<2
+opentelemetry-sdk>=1.26,<2
+opentelemetry-instrumentation-fastapi>=0.47b0,<1
+opentelemetry-exporter-otlp-proto-http>=1.26,<2
