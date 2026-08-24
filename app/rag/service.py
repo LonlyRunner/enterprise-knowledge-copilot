@@ -68,6 +68,10 @@ from app.rag.chat_context_service import (
     ChatContextService,
 )
 
+from app.utils.trace import (
+    get_trace_id,
+)
+
 
 logger = logging.getLogger(
     __name__
@@ -753,6 +757,26 @@ class RagService:
             retrieval_latency
         )
 
+        logger.info(
+            "retrieval_finished",
+
+            extra={
+
+                "trace_id":
+                    get_trace_id(),
+
+                "candidate_count":
+                    len(
+                        hybrid_results
+                    ),
+
+                "rerank_count":
+                    len(
+                        reranked_results
+                    ),
+
+            }
+        )
         return results
 
 

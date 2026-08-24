@@ -32,6 +32,10 @@ from app.repositories.message import (
     MessageRepository,
 )
 
+from app.utils.trace import (
+    create_trace_id,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +174,8 @@ class ChatContextService:
 
         degradation_attempt = 0
 
+        trace_id = create_trace_id()
+
         while True:
 
             built_prompt = (
@@ -258,9 +264,7 @@ class ChatContextService:
         )
         metrics = RequestMetrics(
 
-            trace_id=str(
-                uuid.uuid4()
-            ),
+            trace_id=trace_id,
 
             summary_tokens=(
                 runtime_context.summary_tokens
@@ -325,8 +329,7 @@ class ChatContextService:
         logger.info(
             "rag_request_metrics",
             extra={
-                "trace_id":
-                    metrics.trace_id,
+                "trace_id": trace_id,
 
                 "model":
                     metrics.model,
@@ -342,6 +345,35 @@ class ChatContextService:
 
                 "degradation":
                     metrics.degradation_attempts,
+            }
+        )
+
+        logger.info(
+            "rag_request_finished",
+
+            extra={
+
+                "trace_id":
+                    metrics.trace_id,
+
+                "model":
+                    metrics.model,
+
+                "input_tokens":
+                    metrics.input_tokens,
+
+                "output_tokens":
+                    metrics.output_tokens,
+
+                "total_tokens":
+                    metrics.total_tokens,
+
+                "llm_latency_ms":
+                    metrics.llm_latency_ms,
+
+                "total_cost":
+                    metrics.total_cost,
+
             }
         )
 
