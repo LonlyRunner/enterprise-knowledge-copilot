@@ -92,6 +92,8 @@ class ChatContextService:
         )
 
 
+
+
         self.context_degrader = (
             ContextDegrader()
         )
@@ -175,6 +177,20 @@ class ChatContextService:
 
                 self.token_guard.validate(
                     built_prompt
+                )
+
+                logger.info(
+                    "context pipeline success "
+                    "conversation_id=%s "
+                    "summary=%s "
+                    "history=%s "
+                    "rag_chunks=%s "
+                    "attempt=%s",
+                    conversation_id,
+                    runtime_context.summary_tokens,
+                    runtime_context.history_tokens,
+                    len(runtime_context.rag_chunks),
+                    degradation_attempt,
                 )
 
                 break

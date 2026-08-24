@@ -7,7 +7,7 @@ from app.rag.context import (
 
 
 @dataclass
-class TestMessage:
+class MockMessage:
     role: str
     content: str
 
@@ -20,15 +20,15 @@ def test_history_selector_keeps_recent_messages():
     )
 
     messages = [
-        TestMessage(
+        MockMessage(
             role="user",
             content="旧问题" * 100,
         ),
-        TestMessage(
+        MockMessage(
             role="assistant",
             content="旧回答" * 100,
         ),
-        TestMessage(
+        MockMessage(
             role="user",
             content="最近的问题",
         ),
@@ -61,11 +61,11 @@ def test_history_selector_never_exceeds_budget():
     )
 
     messages = [
-        TestMessage(
+        MockMessage(
             role="user",
             content="4000元报销需要哪些人审批？" * 100,
         ),
-        TestMessage(
+        MockMessage(
             role="assistant",
             content="企业制度相关回答。" * 100,
         ),

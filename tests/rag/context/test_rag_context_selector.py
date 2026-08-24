@@ -7,7 +7,7 @@ from app.rag.context import (
 
 
 @dataclass
-class TestChunk:
+class MockChunk:
     content: str
 
 
@@ -19,9 +19,9 @@ def test_rag_selector_keeps_highest_ranked_chunks():
     )
 
     chunks = [
-        TestChunk(content="最高相关知识"),
-        TestChunk(content="第二相关知识"),
-        TestChunk(content="最低相关知识" * 500),
+        MockChunk(content="最高相关知识"),
+        MockChunk(content="第二相关知识"),
+        MockChunk(content="最低相关知识" * 500),
     ]
 
     first_two_tokens = (
@@ -48,10 +48,10 @@ def test_rag_selector_never_exceeds_budget():
     )
 
     chunks = [
-        TestChunk(
+        MockChunk(
             content="公司报销审批制度。" * 200
         ),
-        TestChunk(
+        MockChunk(
             content="超过金额需要升级审批。" * 200
         ),
     ]

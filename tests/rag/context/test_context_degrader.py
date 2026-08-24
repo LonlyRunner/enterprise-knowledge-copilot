@@ -7,7 +7,7 @@ from app.rag.context import (
 
 
 @dataclass
-class TestMessage:
+class MockMessage:
     role: str
     content: str
 
@@ -43,7 +43,7 @@ def test_degrader_removes_lowest_ranked_rag_first():
 
     context = build_context(
         history=[
-            TestMessage(
+            MockMessage(
                 role="user",
                 content="最近问题",
             )
@@ -70,11 +70,11 @@ def test_degrader_removes_oldest_history_when_no_rag():
 
     context = build_context(
         history=[
-            TestMessage(
+            MockMessage(
                 role="user",
                 content="最旧问题",
             ),
-            TestMessage(
+            MockMessage(
                 role="assistant",
                 content="最近回答",
             ),
