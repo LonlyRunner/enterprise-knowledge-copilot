@@ -3,11 +3,12 @@ from dataclasses import dataclass
 
 @dataclass
 class RequestMetrics:
-    """
-    AI Request Runtime Metrics
-    """
+
+    trace_id: str
+
 
     # Context
+
     summary_tokens: int = 0
 
     history_tokens: int = 0
@@ -18,24 +19,41 @@ class RequestMetrics:
 
 
     # Prompt
+
     prompt_tokens: int = 0
 
 
-    # Generation
+    # LLM
+
+    input_tokens: int = 0
+
     output_tokens: int = 0
 
-
-    # Total
     total_tokens: int = 0
 
 
-    # Latency ms
+    model: str = ""
+
+
+    # Latency
 
     retrieval_latency_ms: float = 0
 
     llm_latency_ms: float = 0
 
     total_latency_ms: float = 0
+
+
+    # Retrieval Quality
+
+    selected_chunk_count: int = 0
+
+    average_rerank_score: float = 0
+
+
+    # Degradation
+
+    degradation_attempts: int = 0
 
 
     # Cost

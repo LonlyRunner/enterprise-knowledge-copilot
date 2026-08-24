@@ -1,7 +1,7 @@
 import logging
 import uuid
 from pathlib import Path
-
+from app.utils.timer import Timer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.llm.client import (
@@ -81,6 +81,8 @@ class RagService:
         session: AsyncSession,
     ):
         self.session = session
+
+        self.last_retrieval_latency = 0
 
         self.llm_client = (
             create_llm_client()
@@ -651,6 +653,10 @@ class RagService:
         candidate_k: int = 10,
     ):
 
+        timer = Timer()
+
+        timer.start()
+
         await self._rebuild_bm25(
             knowledge_base_id
         )
@@ -688,7 +694,7 @@ class RagService:
             )
         )
 
-        return [
+        results = [
             {
                 "rank": index + 1,
                 "original_rank": (
@@ -722,6 +728,33 @@ class RagService:
                 reranked_results
             )
         ]
+
+        retrieval_latency = (
+            timer.elapsed_ms()
+        )
+
+        logger.info(
+            "retrieval metrics "
+            "knowledge_base_id=%s "
+            "latency_ms=%s "
+            "candidate_k=%s "
+            "top_k=%s",
+            knowledge_base_id,
+            retrieval_latency,
+            candidate_k,
+            top_k,
+        )
+
+        retrieval_latency = (
+            timer.elapsed_ms()
+        )
+
+        self.last_retrieval_latency = (
+            retrieval_latency
+        )
+
+        return results
+
 
     async def chat(
             self,
@@ -983,25 +1016,8 @@ class RagService:
         #
         (
             result,
+            metrics,
             runtime_context,
-            degradation_attempt,
-        ) = (
-            await self.chat_context_service
-            .generate_answer(
-                runtime_context=runtime_context,
-                question=question,
-                conversation_id=conversation.id,
-            )
-        )
-
-
-        #
-        # 17. LLM Generation
-        #
-        (
-            result,
-            runtime_context,
-            degradation_attempt,
         ) = (
             await self.chat_context_service
             .generate_answer(
@@ -1025,13 +1041,9 @@ class RagService:
             )
 
             await self.message_repository.create(
-                conversation_id=(
-                    conversation_id
-                ),
+                conversation_id=conversation.id,
                 role="assistant",
-                content=(
-                    result
-                ),
+                content=result.content,
             )
 
             await self.session.commit()
@@ -1082,7 +1094,7 @@ class RagService:
             ),
 
             "degradation_attempts": (
-                degradation_attempt
+                metrics.degradation_attempts
             ),
 
             "selected_history_count": (
@@ -1092,6 +1104,23 @@ class RagService:
             "selected_chunk_count": (
                 len(runtime_context.rag_chunks)
             ),
+
+            "llm_usage": {
+                "prompt_tokens": (
+                    result.usage.prompt_tokens
+                ),
+
+                "completion_tokens": (
+                    result.usage.completion_tokens
+                ),
+
+                "total_tokens": (
+                    result.usage.total_tokens
+                ),
+            },
+
+            "model": result.model,
+            "provider": result.provider,
         }
         #
         # 20. Response
@@ -1103,9 +1132,27 @@ class RagService:
 
             "rewritten_question": rewritten_question,
 
-            "answer": result,
+            "answer": result.content,
 
             "sources": sources,
 
             "context_debug": context_debug,
+
+            "metrics": {
+                "trace_id": metrics.trace_id,
+
+                "tokens": {
+                    "input": metrics.input_tokens,
+                    "output": metrics.output_tokens,
+                    "total": metrics.total_tokens,
+                },
+
+                "latency": {
+                    "llm": metrics.llm_latency_ms,
+                },
+
+                "cost": {
+                    "total": metrics.total_cost,
+                },
+            }
         }

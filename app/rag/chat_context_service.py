@@ -1,5 +1,12 @@
 import logging
 from uuid import UUID
+import uuid
+
+from app.metrics import (
+    RequestMetrics,
+    CostCalculator,
+)
+
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -94,10 +101,11 @@ class ChatContextService:
 
 
 
-
         self.context_degrader = (
             ContextDegrader()
         )
+
+        self.cost_calculator = CostCalculator()
 
 
     async def build_context(
@@ -229,9 +237,10 @@ class ChatContextService:
                     degraded_context
                 )
 
-        timer = Timer()
+        llm_timer = Timer()
 
-        timer.start()
+        llm_timer.start()
+
         result = (
             await self.llm_client.chat(
                 message=(
@@ -244,8 +253,65 @@ class ChatContextService:
             )
         )
 
-        llm_latency_ms = (
-            timer.elapsed_ms()
+        llm_latency = (
+            llm_timer.elapsed_ms()
+        )
+        metrics = RequestMetrics(
+
+            trace_id=str(
+                uuid.uuid4()
+            ),
+
+            summary_tokens=(
+                runtime_context.summary_tokens
+            ),
+
+            history_tokens=(
+                runtime_context.history_tokens
+            ),
+
+            rag_context_tokens=(
+                runtime_context.rag_context_tokens
+            ),
+
+            question_tokens=(
+                runtime_context.question_tokens
+            ),
+
+            input_tokens=(
+                result.usage.prompt_tokens
+            ),
+
+            output_tokens=(
+                result.usage.completion_tokens
+            ),
+
+            total_tokens=(
+                result.usage.total_tokens
+            ),
+
+            model=result.model,
+
+            llm_latency_ms=(
+                llm_latency
+            ),
+
+            retrieval_latency_ms=0,
+
+            selected_chunk_count=(
+                len(runtime_context.rag_chunks)
+            ),
+
+            degradation_attempts=(
+                degradation_attempt
+            ),
+
+            total_cost=(
+                self.cost_calculator.calculate(
+                    input_tokens=result.usage.prompt_tokens,
+                    output_tokens=result.usage.completion_tokens,
+                )
+            ),
         )
 
         logger.info(
@@ -253,11 +319,34 @@ class ChatContextService:
             "conversation_id=%s "
             "latency_ms=%s",
             conversation_id,
-            llm_latency_ms,
+            llm_latency,
+        )
+
+        logger.info(
+            "rag_request_metrics",
+            extra={
+                "trace_id":
+                    metrics.trace_id,
+
+                "model":
+                    metrics.model,
+
+                "input_tokens":
+                    metrics.input_tokens,
+
+                "output_tokens":
+                    metrics.output_tokens,
+
+                "latency":
+                    metrics.llm_latency_ms,
+
+                "degradation":
+                    metrics.degradation_attempts,
+            }
         )
 
         return (
-            result.content,
+            result,
+            metrics,
             runtime_context,
-            degradation_attempt,
         )
