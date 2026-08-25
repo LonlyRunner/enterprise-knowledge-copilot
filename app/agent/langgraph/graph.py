@@ -1,9 +1,9 @@
+
 from langgraph.graph import (
     StateGraph,
     START,
     END,
 )
-
 
 from app.agent.langgraph.state import (
     AgentState,
@@ -23,18 +23,22 @@ from app.agent.langgraph.agents import (
 
 
 from app.agent.langgraph.checkpointer import (
-    create_checkpointer,
-)
-
-from app.core.config import (
-    get_settings,
+    CheckpointerManager,
 )
 
 
-def create_customer_graph(
-    order_agent,
-    rag_agent,
+id="c2q9zq"
+_checkpointer_manager = None
+
+
+async def create_customer_graph(
+        order_agent=None,
+        rag_agent=None,
+
 ):
+
+
+
 
 
     order_agent_node = (
@@ -149,19 +153,19 @@ def create_customer_graph(
         END,
     )
 
-    settings = get_settings()
+    global _checkpointer_manager
 
-    settings = get_settings()
+    if _checkpointer_manager is None:
+        _checkpointer_manager = (
+            CheckpointerManager(
+                "redis://localhost:6379/0"
+            )
+        )
 
-    # checkpointer = (
-    #     create_checkpointer(
-    #         settings.langgraph_checkpoint_url
-    #     )
-    # )
-    checkpointer = (
-        create_checkpointer()
+    checkpointer = await (
+        _checkpointer_manager
+        .get_checkpointer()
     )
-
 
     return graph.compile(
         checkpointer=checkpointer

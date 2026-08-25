@@ -5,24 +5,29 @@ from app.agent.langgraph.graph import (
     create_customer_graph,
 )
 
+config = {
 
+    "configurable":
+    {
+        "thread_id":
+        "refund001"
+    }
+
+}
 
 class FakeOrderAgent:
 
 
     async def run(
         self,
-        question,
-        tenant_id=None,
-        user_id=None,
-        trace_id=None,
+        *args,
         **kwargs,
     ):
 
         return {
 
             "answer":
-            "订单查询结果"
+            "订单处理中"
 
         }
 
@@ -34,18 +39,11 @@ class FakeRagAgent:
     async def run(
         self,
         question,
-        tenant_id=None,
-        user_id=None,
-        trace_id=None,
-        **kwargs,
     ):
 
-        return {
-
-            "answer":
-            "知识库结果"
-
-        }
+        return (
+            "知识库回答"
+        )
 
 
 
@@ -67,12 +65,15 @@ def build_test_graph():
 
 @pytest.mark.asyncio
 async def test_human_review_interrupt():
+    graph = await (
+        create_customer_graph(
 
+            FakeOrderAgent(),
 
-    graph = (
-        build_test_graph()
+            FakeRagAgent(),
+
+        )
     )
-
 
     config = {
 

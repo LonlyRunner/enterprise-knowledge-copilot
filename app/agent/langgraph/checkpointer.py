@@ -1,26 +1,52 @@
-from langgraph.checkpoint.memory import (
-    MemorySaver,
+from langgraph.checkpoint.redis import (
+    AsyncRedisSaver,
 )
 
 
-def create_checkpointer(
-    redis_url: str | None = None,
-):
+class CheckpointerManager:
+    """
+    LangGraph Redis Async Checkpointer
+    """
 
 
-    if not redis_url:
+    def __init__(
+        self,
+        redis_url: str,
+    ):
 
-        return MemorySaver()
+        self.redis_url = redis_url
 
+        self.context = None
 
-    from langgraph.checkpoint.redis import (
-        RedisSaver,
-    )
-
-
-    saver = RedisSaver.from_conn_string(
-        redis_url
-    )
+        self.checkpointer = None
 
 
-    return saver
+    async def get_checkpointer(self):
+
+
+        if self.checkpointer is None:
+
+
+            self.context = (
+                AsyncRedisSaver.from_conn_string(
+                    self.redis_url
+                )
+            )
+
+
+            self.checkpointer = (
+                await self.context.__aenter__()
+            )
+
+
+            await (
+                self.checkpointer.setup()
+            )
+
+
+            print(
+                "Async Redis Checkpointer initialized"
+            )
+
+
+        return self.checkpointer

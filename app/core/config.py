@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://127.0.0.1:6379/1"
     redis_lock_url: str = "redis://127.0.0.1:6379/2"
     redis_cache_url: str = "redis://127.0.0.1:6379/3"
-    langgraph_checkpoint_url: str = (
-        "redis://127.0.0.1:6379/4"
+    redis_url: str = (
+        "redis://localhost:6379/0"
     )
     document_lock_ttl_seconds: int = 300
     # Empty is allowed for local imports/tests, but authentication must reject it.
