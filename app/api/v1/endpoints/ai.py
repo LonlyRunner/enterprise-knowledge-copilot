@@ -1,19 +1,46 @@
-from fastapi import APIRouter, Depends
+from fastapi import (
+    APIRouter,
+    Depends,
+)
 
-from app.api.v1.endpoints.agent import router
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
+from app.db.dependencies import get_db
+
+
+from app.gateway.service import GatewayService
+
+
 from app.gateway.schemas import (
     GatewayRequest,
     GatewayResponse,
 )
 
-from app.gateway.service import GatewayService
+
+from app.rag.service import RagService
 
 
 
+router = APIRouter(
+    prefix="/ai",
+    tags=["AI Gateway"]
+)
 
 
 
-gateway_service = GatewayService()
+def create_gateway_service(
+    session: AsyncSession,
+):
+
+    rag_service = RagService(
+        session=session
+    )
+
+
+    return GatewayService(
+        rag_service=rag_service
+    )
 
 
 
@@ -23,7 +50,12 @@ gateway_service = GatewayService()
 )
 async def ai_chat(
     request: GatewayRequest,
+    db: AsyncSession = Depends(get_db),
 ):
+
+    gateway_service = create_gateway_service(
+        db
+    )
 
     return await gateway_service.execute(
         request
@@ -37,7 +69,12 @@ async def ai_chat(
 )
 async def ai_agent(
     request: GatewayRequest,
+    db: AsyncSession = Depends(get_db),
 ):
+
+    gateway_service = create_gateway_service(
+        db
+    )
 
     request.mode = "agent"
 
@@ -54,7 +91,13 @@ async def ai_agent(
 )
 async def ai_rag(
     request: GatewayRequest,
+    db: AsyncSession = Depends(get_db),
 ):
+
+    gateway_service = create_gateway_service(
+        db
+    )
+
 
     request.mode = "rag"
 

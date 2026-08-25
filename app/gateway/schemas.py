@@ -1,5 +1,5 @@
 from typing import Any, Dict, Optional, List
-
+from uuid import UUID
 from pydantic import BaseModel
 
 
@@ -9,12 +9,17 @@ class GatewayRequest(BaseModel):
 
     tenant_id: Optional[str] = None
 
+
+    knowledge_base_id: Optional[UUID] = None
+
+
     message: str
+
 
     mode: str = "chat"
 
-    metadata: Dict[str, Any] = {}
 
+    metadata: Dict[str, Any] = {}
 
 
 class GatewayResponse(BaseModel):

@@ -4,6 +4,7 @@ from app.gateway.schemas import (
     GatewayRequest,
     GatewayResponse,
 )
+from app.rag.service import RagService
 
 
 class GatewayService:
@@ -59,18 +60,14 @@ class GatewayService:
                 answer="chat mode not implemented",
             )
 
-
-
     async def _execute_rag(
-        self,
-        request,
-        request_id,
-        trace_id,
+            self,
+            request,
+            request_id,
+            trace_id,
     ):
 
-
         if self.rag_service is None:
-
             return GatewayResponse(
                 request_id=request_id,
                 trace_id=trace_id,
@@ -78,11 +75,14 @@ class GatewayService:
                 answer="RAG service unavailable",
             )
 
-
         result = await self.rag_service.query(
-            request.message
-        )
 
+            knowledge_base_id=request.knowledge_base_id,
+
+            question=request.message,
+
+            top_k=3,
+        )
 
         return GatewayResponse(
 
@@ -92,14 +92,12 @@ class GatewayService:
 
             status="completed",
 
-            answer=result.get(
-                "answer"
-            ),
+            answer=result.answer,
 
-            citations=result.get(
-                "citations",
-                []
-            )
+            citations=[
+                source.model_dump()
+                for source in result.sources
+            ],
 
         )
 

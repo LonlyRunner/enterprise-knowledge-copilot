@@ -65,7 +65,5 @@ api_router.include_router(orders_router)
 # 将 ai.router 包含到 api_router，而不是 ai.router 自己
 api_router.include_router(
     ai.router,
-    prefix="/ai",
-    tags=["AI"]
 )
 
