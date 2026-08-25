@@ -5,6 +5,11 @@ from langgraph.graph import (
 )
 
 
+from langgraph.checkpoint.memory import (
+    MemorySaver,
+)
+
+
 from app.agent.langgraph.state import (
     AgentState,
 )
@@ -12,6 +17,7 @@ from app.agent.langgraph.state import (
 
 from app.agent.langgraph.nodes import (
     intent_router,
+    refund_check_node,
 )
 
 
@@ -65,6 +71,12 @@ def create_customer_graph(
     )
 
 
+    graph.add_node(
+        "refund_check",
+        refund_check_node,
+    )
+
+
     graph.add_edge(
         START,
         "router",
@@ -92,7 +104,39 @@ def create_customer_graph(
 
     graph.add_edge(
         "order",
-        END,
+        "refund_check",
+    )
+
+
+    def check_human(state):
+
+        if state.get(
+            "need_human_review",
+            False
+        ):
+
+            return "human"
+
+
+        return "end"
+
+
+    graph.add_conditional_edges(
+
+        "refund_check",
+
+        check_human,
+
+        {
+
+            "human":
+            END,
+
+            "end":
+            END,
+
+        }
+
     )
 
 
@@ -102,4 +146,9 @@ def create_customer_graph(
     )
 
 
-    return graph.compile()
+    checkpointer = MemorySaver()
+
+
+    return graph.compile(
+        checkpointer=checkpointer
+    )

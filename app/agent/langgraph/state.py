@@ -17,3 +17,8 @@ class AgentState(
     user_id: str
 
     trace_id: str
+
+
+    need_human_review: bool
+
+    human_action: str | None
