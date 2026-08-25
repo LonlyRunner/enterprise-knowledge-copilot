@@ -1,23 +1,46 @@
-from app.tools.order import query_order_tool
+from app.tools.order import QueryOrderTool
+
+from app.services.business_gateway import (
+    MockBusinessGateway,
+)
 
 
 def test_query_order_schema():
 
-    assert query_order_tool.name == "query_order"
-
-    assert query_order_tool.side_effect is False
+    tool = QueryOrderTool(
+        MockBusinessGateway()
+    )
 
     assert (
-        query_order_tool.requires_approval
+        tool.definition.name
+        == "query_order"
+    )
+
+    assert (
+        tool.definition.side_effect
+        is False
+    )
+
+    assert (
+        tool.definition.requires_approval
         is False
     )
 
 
 def test_query_order_required_argument():
 
-    schema = query_order_tool.input_schema
+    tool = QueryOrderTool(
+        MockBusinessGateway()
+    )
 
-    assert "order_id" in schema["required"]
+    schema = (
+        tool.definition.input_schema
+    )
+
+    assert (
+        "order_id"
+        in schema["required"]
+    )
 
     assert (
         schema["additionalProperties"]

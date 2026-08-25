@@ -1,23 +1,25 @@
-from app.tools.base import ToolRegistry
-from app.tools.order import query_order_tool
+from app.tools.order import (
+    QueryOrderTool,
+)
+
+from app.tools.base import (
+    ToolRegistry,
+)
 
 
-def create_tool_registry() -> ToolRegistry:
-    """
-    创建 Agent 工具注册中心
 
-    后续新增工具：
-    query_logistics
-    knowledge_search
-    create_ticket
-
-    都在这里注册
-    """
+def create_tool_registry(
+    gateway,
+):
 
     registry = ToolRegistry()
 
+
     registry.register(
-        query_order_tool
+        QueryOrderTool(
+            gateway
+        )
     )
+
 
     return registry

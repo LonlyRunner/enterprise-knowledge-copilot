@@ -1,10 +1,11 @@
 from app.tools.base import (
+    BaseTool,
     ToolDefinition,
     ToolRegistry,
 )
 
 from app.tools.order import (
-    query_order_tool,
+    QueryOrderTool,
 )
 
 from app.tools.registry import (
@@ -17,9 +18,10 @@ from app.tools.executor import (
 
 
 __all__ = [
+    "BaseTool",
     "ToolDefinition",
     "ToolRegistry",
-    "query_order_tool",
+    "QueryOrderTool",
     "create_tool_registry",
     "DefaultToolExecutor",
 ]

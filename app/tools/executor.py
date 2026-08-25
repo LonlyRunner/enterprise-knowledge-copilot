@@ -25,51 +25,29 @@ class DefaultToolExecutor:
         self.registry = registry
         self.business_gateway = business_gateway
 
-
     async def execute(
-        self,
-        tool_name: str,
-        arguments: dict[str, Any],
-        *,
-        tenant_id: str,
-        user_id: str,
-        trace_id: str,
-    ) -> dict[str, Any]:
-
+            self,
+            tool_name: str,
+            arguments: dict,
+            *,
+            tenant_id: str,
+            user_id: str,
+            trace_id: str,
+    ):
         tool = self.registry.get(
             tool_name
         )
 
-
         if tool is None:
             return {
                 "success": False,
-                "error_code": "TOOL_NOT_FOUND",
+                "error_code":
+                    "TOOL_NOT_FOUND",
             }
 
-
-        if tool_name == "query_order":
-
-            order_id = arguments.get(
-                "order_id"
-            )
-
-
-            if not order_id:
-                return {
-                    "success": False,
-                    "error_code": "INVALID_ARGUMENT",
-                }
-
-
-            return await self.business_gateway.query_order(
-                order_id,
-                tenant_id=tenant_id,
-                user_id=user_id,
-            )
-
-
-        return {
-            "success": False,
-            "error_code": "UNSUPPORTED_TOOL",
-        }
+        return await tool.execute(
+            arguments,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            trace_id=trace_id,
+        )

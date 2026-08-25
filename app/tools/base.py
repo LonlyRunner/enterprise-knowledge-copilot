@@ -6,8 +6,6 @@ from typing import Any, Protocol
 class ToolDefinition:
     """
     Agent工具定义
-
-    给LLM看的能力描述
     """
 
     name: str
@@ -47,35 +45,61 @@ class ToolRegistry:
     """
 
     def __init__(self):
-        self._tools: dict[str, ToolDefinition] = {}
+        self._tools: dict[str, BaseTool]= {}
 
     def register(
-        self,
-        tool: ToolDefinition,
+            self,
+            tool
     ):
-        self._tools[tool.name] = tool
-
+        self._tools[
+            tool.definition.name
+        ] = tool
 
     def get(
-        self,
-        name: str,
-    ) -> ToolDefinition | None:
+            self,
+            name: str
+    ):
         return self._tools.get(name)
 
-
-    def schemas(self) -> list[dict[str, Any]]:
-        """
-        转换成OpenAI兼容tool schema
-        """
-
+    def schemas(self):
         return [
+
             {
                 "type": "function",
+
                 "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.input_schema,
-                },
+
+                    "name":
+                        tool.definition.name,
+
+                    "description":
+                        tool.definition.description,
+
+                    "parameters":
+                        tool.definition.input_schema,
+                }
             }
-            for tool in self._tools.values()
+
+            for tool
+            in self._tools.values()
+
         ]
+
+
+class BaseTool(Protocol):
+    """
+    企业 Tool 标准接口
+    """
+
+    definition: ToolDefinition
+
+
+    async def execute(
+        self,
+        arguments: dict[str, Any],
+        *,
+        tenant_id: str,
+        user_id: str,
+        trace_id: str,
+    ) -> dict[str, Any]:
+        ...

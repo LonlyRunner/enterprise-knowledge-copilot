@@ -1,37 +1,89 @@
-from app.tools.base import ToolDefinition
+from app.tools.base import (
+    ToolDefinition,
+)
+
+from app.services.business_gateway import (
+    BusinessGateway,
+)
 
 
-query_order_tool = ToolDefinition(
-    name="query_order",
+class QueryOrderTool:
+    """
+    查询订单工具
+    """
 
-    description=(
-        "查询当前登录客户有权限访问的订单状态。"
-        "只能查询订单信息，不执行修改操作。"
-    ),
+    definition = ToolDefinition(
 
-    input_schema={
-        "type": "object",
+        name="query_order",
 
-        "properties": {
-            "order_id": {
-                "type": "string",
+        description=(
+            "查询当前登录客户有权限访问的订单状态"
+        ),
 
-                "pattern": "^XN-[0-9]{4}-[0-9]{6}$",
+        input_schema={
 
-                "description": (
-                    "星云科技订单号，例如 XN-2026-000381"
-                ),
-            }
+            "type": "object",
+
+            "properties": {
+
+                "order_id": {
+
+                    "type": "string",
+
+                    "pattern":
+                    "^XN-[0-9]{4}-[0-9]{6}$",
+
+                    "description":
+                    "订单编号",
+                }
+            },
+
+            "required":[
+                "order_id"
+            ],
+
+            "additionalProperties":
+            False,
         },
 
-        "required": [
+        side_effect=False,
+
+        requires_approval=False,
+    )
+
+
+    def __init__(
+        self,
+        gateway: BusinessGateway,
+    ):
+        self.gateway = gateway
+
+
+
+    async def execute(
+        self,
+        arguments: dict,
+        *,
+        tenant_id: str,
+        user_id: str,
+        trace_id: str,
+    ):
+
+        order_id = arguments.get(
             "order_id"
-        ],
+        )
 
-        "additionalProperties": False,
-    },
 
-    side_effect=False,
+        if not order_id:
+            return {
+                "success": False,
+                "error_code":
+                "INVALID_ARGUMENT",
+            }
 
-    requires_approval=False,
-)
+
+        return await self.gateway.query_order(
+            order_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )

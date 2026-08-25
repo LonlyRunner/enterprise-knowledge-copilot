@@ -19,11 +19,11 @@ from app.services.business_gateway import (
 async def test_execute_query_order():
 
 
-    registry = create_tool_registry()
-
-
     gateway = MockBusinessGateway()
 
+    registry = create_tool_registry(
+        gateway
+    )
 
     executor = DefaultToolExecutor(
         registry,
@@ -49,12 +49,12 @@ async def test_execute_query_order():
 
 @pytest.mark.asyncio
 async def test_execute_unknown_tool():
-
-
-    registry = create_tool_registry()
-
-
     gateway = MockBusinessGateway()
+
+    registry = create_tool_registry(
+        gateway
+    )
+
 
 
     executor = DefaultToolExecutor(
