@@ -277,8 +277,10 @@ class DeepSeekLLMClient(BaseLLMClient):
         response = await self.client.post(
             f"{self.base_url}/chat/completions",
             json=payload,
-            headers=self.headers,
+            headers=self._headers(),
         )
+
+        self._check_response(response)
 
         data = response.json()
 
