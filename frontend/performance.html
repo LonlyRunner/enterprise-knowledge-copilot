@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>星云科技 · 性能与稳定性联调</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./performance.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="header"><div><p class="eyebrow">ENTERPRISE KNOWLEDGE COPILOT</p><h1>星云科技有限公司 · 性能与稳定性联调</h1><p>集中验证 Async、连接池、LLM 超时与重试、SSE 流式、Token、Redis 缓存和批量 Embedding。</p></div><a href="./index.html">返回知识库</a></header>
+    <section class="toolbar"><label>API 地址 <input id="apiBase" value="/api/v1"></label><button id="configBtn">读取运行配置</button><span id="status">未检查</span></section>
+    <section class="grid">
+      <article class="card"><h2>运行配置 / Connection Pool</h2><pre id="configOutput">点击读取配置</pre><button id="poolBtn">测试数据库连接池</button><pre id="poolOutput"></pre></article>
+      <article class="card"><h2>Token 优化</h2><textarea id="tokenText">费用报销需要部门负责人和财务审批，单笔超过 5000 元还需要总经理审批。</textarea><button id="tokenBtn">估算 Token</button><pre id="tokenOutput"></pre></article>
+      <article class="card"><h2>Cache 命中</h2><input id="cacheKey" value="diagnostic-demo"><input id="cacheValue" value="缓存连接正常"><button id="cacheBtn">写入并读取缓存</button><pre id="cacheOutput"></pre></article>
+      <article class="card"><h2>Batch Embedding</h2><textarea id="embeddingText">企业年假政策
+费用报销制度
+信息安全规范</textarea><button id="embeddingBtn">执行批量向量化</button><pre id="embeddingOutput"></pre><small>需要配置 Embedding API Key；页面只显示数量和维度。</small></article>
+      <article class="card wide"><h2>Streaming / LLM Timeout / Retry</h2><textarea id="streamText">请用一句话介绍星云科技有限公司的费用报销流程。</textarea><button id="streamBtn">开始 SSE 流式测试</button><div id="streamOutput" class="stream"></div></article>
+    </section>
+  </main>
+  <script src="./performance.js" defer></script>
+</body>
+</html>

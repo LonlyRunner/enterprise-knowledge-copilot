@@ -2,6 +2,7 @@
 import hashlib
 import json
 import logging
+from functools import lru_cache
 from typing import Any
 
 from redis.asyncio import Redis
@@ -11,10 +12,24 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=1)
+def get_cache_redis() -> Redis:
+    """One process-wide async Redis pool instead of one pool per request."""
+    settings = get_settings()
+    return Redis.from_url(
+        settings.redis_cache_url,
+        decode_responses=True,
+        max_connections=settings.http_max_connections,
+        socket_connect_timeout=5,
+        socket_timeout=5,
+        health_check_interval=30,
+    )
+
+
 class SemanticCache:
     def __init__(self, redis: Redis | None = None, ttl_seconds: int = 600):
-        settings = get_settings()
-        self.redis = redis or Redis.from_url(settings.redis_cache_url, decode_responses=True)
+        self.redis = redis or get_cache_redis()
+        self._owned = redis is not None
         self.ttl_seconds = ttl_seconds
 
     @staticmethod
@@ -51,7 +66,19 @@ class SemanticCache:
             logger.warning("semantic cache invalidation failed", exc_info=True)
 
     async def close(self) -> None:
+        # The default client is a shared pool and must stay alive between
+        # requests.  Application lifespan closes it once during shutdown.
+        if not self._owned:
+            return
         try:
             await self.redis.aclose()
         except Exception:
             logger.debug("semantic cache close failed", exc_info=True)
+
+
+async def close_cache_redis() -> None:
+    redis = get_cache_redis.cache_info()
+    if redis.currsize:
+        client = get_cache_redis()
+        await client.aclose()
+        get_cache_redis.cache_clear()

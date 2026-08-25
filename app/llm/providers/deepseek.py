@@ -15,6 +15,7 @@ from app.llm.base import (
     LLMResult,
     TokenUsage, ToolCall, LLMMessage,
 )
+from app.core.retry import retry_async
 
 
 class DeepSeekLLMClient(BaseLLMClient):
@@ -28,12 +29,16 @@ class DeepSeekLLMClient(BaseLLMClient):
 
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(
-                self.settings.llm_timeout
+                self.settings.llm_timeout,
+                connect=10.0,
+                pool=10.0,
             ),
             limits=httpx.Limits(
-                max_connections=100,
-                max_keepalive_connections=20,
+                max_connections=self.settings.http_max_connections,
+                max_keepalive_connections=self.settings.http_max_keepalive_connections,
+                keepalive_expiry=self.settings.http_keepalive_expiry_seconds,
             ),
+            trust_env=False,
         )
 
     def _headers(self) -> dict:
@@ -74,58 +79,42 @@ class DeepSeekLLMClient(BaseLLMClient):
 
         url = f"{self.base_url}/chat/completions"
 
-        for attempt in range(3):
+        async def request():
+            response = await self.client.post(
+                url=url,
+                headers=self._headers(),
+                json=self._payload(message),
+            )
+            self._check_response(response)
+            return response
 
-            try:
-                response = await self.client.post(
-                    url=url,
-                    headers=self._headers(),
-                    json=self._payload(message),
-                )
+        try:
+            response = await retry_async(
+                request,
+                attempts=self.settings.retry_max_attempts,
+                base_delay=self.settings.retry_base_delay_seconds,
+                is_retryable=self._is_retryable,
+            )
+            data = response.json()
 
-                self._check_response(response)
+            usage_data = data.get("usage", {})
 
-                data = response.json()
-
-                usage_data = data.get("usage", {})
-
-                usage = TokenUsage(
-                    prompt_tokens=usage_data.get(
-                        "prompt_tokens",
-                        0,
-                    ),
-                    completion_tokens=usage_data.get(
-                        "completion_tokens",
-                        0,
-                    ),
-                    total_tokens=usage_data.get(
-                        "total_tokens",
-                        0,
-                    ),
-                )
-
-                return LLMResult(
-                    content=data["choices"][0]["message"]["content"],
-                    model=data.get("model", self.model),
-                    provider="deepseek",
-                    usage=usage,
-                )
-
-            except httpx.TimeoutException:
-                if attempt == 2:
-                    raise LLMTimeoutException()
-
-            except httpx.RequestError as exc:
-                if attempt == 2:
-                    raise LLMServiceException(
-                        str(exc)
-                    )
-
-            await asyncio.sleep(
-                2 ** attempt
+            usage = TokenUsage(
+                prompt_tokens=usage_data.get("prompt_tokens", 0),
+                completion_tokens=usage_data.get("completion_tokens", 0),
+                total_tokens=usage_data.get("total_tokens", 0),
             )
 
-        raise LLMServiceException()
+            return LLMResult(
+                content=data["choices"][0]["message"]["content"],
+                model=data.get("model", self.model),
+                provider="deepseek",
+                usage=usage,
+            )
+        except httpx.TimeoutException as exc:
+            raise LLMTimeoutException() from exc
+        except httpx.RequestError as exc:
+            raise LLMServiceException(str(exc)) from exc
 
     async def stream_chat(
             self,
@@ -157,78 +146,48 @@ class DeepSeekLLMClient(BaseLLMClient):
             ),
         }
 
-        async with httpx.AsyncClient(
-                timeout=self.settings.llm_timeout
-        ) as client:
-
-            async with client.stream(
+        # A stream is retried only while opening the response.  Retrying after
+        # bytes have been yielded would duplicate the user's answer.
+        for attempt in range(max(1, self.settings.retry_max_attempts)):
+            try:
+                stream_context = self.client.stream(
                     "POST",
                     url,
                     headers=headers,
                     json=payload,
-            ) as response:
+                )
+                async with stream_context as response:
+                    self._check_response(response)
+                    async for line in response.aiter_lines():
+                        if not line or not line.startswith("data:"):
+                            continue
+                        data = line.removeprefix("data:").strip()
+                        if data == "[DONE]":
+                            return
+                        try:
+                            event = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        choices = event.get("choices") or []
+                        if choices:
+                            content = (choices[0].get("delta") or {}).get("content")
+                            if content:
+                                yield content
+                return
+            except (httpx.TimeoutException, httpx.RequestError, LLMRateLimitException, LLMServiceException) as exc:
+                if attempt >= self.settings.retry_max_attempts - 1 or not self._is_retryable(exc):
+                    if isinstance(exc, httpx.TimeoutException):
+                        raise LLMTimeoutException() from exc
+                    if isinstance(exc, httpx.RequestError):
+                        raise LLMServiceException(str(exc)) from exc
+                    raise
+                await asyncio.sleep(min(self.settings.retry_base_delay_seconds * (2**attempt), 8.0))
 
-                response.raise_for_status()
-
-                async for line in (
-                        response.aiter_lines()
-                ):
-
-                    if not line:
-                        continue
-
-                    if not line.startswith(
-                            "data:"
-                    ):
-                        continue
-
-                    data = (
-                        line
-                        .removeprefix(
-                            "data:"
-                        )
-                        .strip()
-                    )
-
-                    if data == "[DONE]":
-                        break
-
-                    try:
-                        event = (
-                            json.loads(
-                                data
-                            )
-                        )
-
-                    except json.JSONDecodeError:
-                        continue
-
-                    choices = (
-                            event.get(
-                                "choices"
-                            )
-                            or []
-                    )
-
-                    if not choices:
-                        continue
-
-                    delta = (
-                            choices[0]
-                            .get(
-                                "delta"
-                            )
-                            or {}
-                    )
-
-                    content = (
-                        delta.get(
-                            "content"
-                        )
-                    )
-
-                    if content:
-                        yield content
+    @staticmethod
+    def _is_retryable(exc: Exception) -> bool:
+        if isinstance(exc, (httpx.TimeoutException, httpx.RequestError, LLMRateLimitException)):
+            return True
+        return isinstance(exc, LLMServiceException) and bool(getattr(exc, "retryable", False))
 
     def _check_response(
         self,
@@ -242,7 +201,9 @@ class DeepSeekLLMClient(BaseLLMClient):
             raise LLMRateLimitException()
 
         if response.status_code >= 500:
-            raise LLMServiceException()
+            error = LLMServiceException()
+            error.retryable = True
+            raise error
 
         if response.status_code >= 400:
             raise LLMServiceException(
@@ -274,13 +235,26 @@ class DeepSeekLLMClient(BaseLLMClient):
 
         }
 
-        response = await self.client.post(
-            f"{self.base_url}/chat/completions",
-            json=payload,
-            headers=self._headers(),
-        )
+        async def request():
+            response = await self.client.post(
+                f"{self.base_url}/chat/completions",
+                json=payload,
+                headers=self._headers(),
+            )
+            self._check_response(response)
+            return response
 
-        self._check_response(response)
+        try:
+            response = await retry_async(
+                request,
+                attempts=self.settings.retry_max_attempts,
+                base_delay=self.settings.retry_base_delay_seconds,
+                is_retryable=self._is_retryable,
+            )
+        except httpx.TimeoutException as exc:
+            raise LLMTimeoutException() from exc
+        except httpx.RequestError as exc:
+            raise LLMServiceException(str(exc)) from exc
 
         data = response.json()
 

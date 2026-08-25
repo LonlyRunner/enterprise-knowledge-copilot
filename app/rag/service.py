@@ -173,6 +173,15 @@ class RagService:
             )
         )
 
+    async def close(self) -> None:
+        """Release per-request outbound clients on all endpoint paths."""
+        close = getattr(self.embedding_client, "close", None)
+        if close:
+            await close()
+        close = getattr(self.llm_client, "close", None)
+        if close:
+            await close()
+
     async def index_document(
         self,
         *,

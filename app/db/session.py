@@ -19,7 +19,18 @@ engine = create_async_engine(
 
     max_overflow=settings.db_max_overflow,
 
+    pool_timeout=settings.db_pool_timeout_seconds,
+
+    pool_recycle=settings.db_pool_recycle_seconds,
+
+    pool_use_lifo=settings.db_pool_use_lifo,
+
     pool_pre_ping=True,
+
+    connect_args={
+        "command_timeout": settings.db_command_timeout_seconds,
+        "server_settings": {"application_name": settings.app_name},
+    },
 )
 
 

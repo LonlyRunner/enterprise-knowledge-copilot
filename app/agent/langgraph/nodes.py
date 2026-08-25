@@ -10,10 +10,13 @@ async def intent_router(
 
     question = state["question"]
 
+    if state.get("intent") in {"order", "knowledge"}:
+        return state
+
 
     if (
         "订单" in question
-        or "退款" in question
+        or any(word in question for word in ("物流", "配送", "我要退款", "申请退款", "退款进度"))
     ):
 
         state["intent"] = "order"

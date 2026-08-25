@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>星云科技 · 订单系统联调</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./orders.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div><p class="eyebrow">CUSTOMER SERVICE AGENT · ORDER SYSTEM</p><h1>星云科技有限公司 · 订单系统联调</h1><p>模拟订单、物流、售后工单和 Agent Tool Calling 的真实业务数据。</p></div>
+      <nav><a href="./index.html">知识库</a><a href="./performance.html">性能联调</a></nav>
+    </header>
+    <section class="toolbar">
+      <label>API 地址 <input id="apiBase" value="/api/v1"></label>
+      <label>客户 <select id="userId"><option value="demo-user">张晨 / demo-user</option><option value="finance-user">星河制造 / finance-user</option></select></label>
+      <select id="status"><option value="">全部状态</option><option value="pending_payment">待付款</option><option value="shipping">运输中</option><option value="delivered">已送达</option><option value="completed">已完成</option><option value="refunding">退款处理中</option></select>
+      <input id="query" placeholder="搜索订单号或商品">
+      <button id="refreshBtn">刷新订单</button><span id="statusText">未加载</span>
+    </section>
+    <section class="stats"><div><strong id="totalCount">0</strong><span>订单总数</span></div><div><strong id="shippingCount">0</strong><span>运输中</span></div><div><strong id="amountTotal">¥0</strong><span>订单金额</span></div><div><strong id="ticketCount">0</strong><span>本次工单</span></div></section>
+    <div class="layout">
+      <section class="card"><div class="section-head"><div><p class="eyebrow dark">ORDER LIST</p><h2>订单列表</h2></div><small>点击订单查看物流和售后</small></div><div id="orderList" class="order-list"><div class="empty">正在加载模拟订单…</div></div></section>
+      <aside class="card detail"><div class="section-head"><div><p class="eyebrow dark">ORDER DETAIL</p><h2 id="detailTitle">选择一个订单</h2></div><span id="detailStatus" class="badge muted">未选择</span></div><div id="detailBody" class="empty">从左侧选择订单</div><div id="logistics" class="logistics"></div><div id="ticketPanel" class="ticket-panel" hidden><h3>创建售后工单</h3><textarea id="ticketReason" maxlength="500" placeholder="请输入退款、换货或售后原因"></textarea><div class="ticket-actions"><button id="ticketPreviewBtn" class="secondary">提交审批预览</button><button id="ticketApproveBtn">批准并创建</button></div><pre id="ticketOutput"></pre></div></aside>
+    </div>
+    <section class="card tool-hint"><h2>Agent Tool Calling 联调提示</h2><p>页面调用的订单和物流接口与 <code>query_order</code>、<code>query_logistics</code> 共用 <code>MockBusinessGateway</code>。输入订单号 <code>XN-2026-000381</code> 可验证 Agent 与页面返回一致。</p></section>
+  </main>
+  <script src="./orders.js" defer></script>
+</body>
+</html>

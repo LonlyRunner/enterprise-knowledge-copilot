@@ -4,6 +4,7 @@ from langgraph.graph import (
     START,
     END,
 )
+from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agent.langgraph.state import (
     AgentState,
@@ -31,10 +32,26 @@ id="c2q9zq"
 _checkpointer_manager = None
 
 
-async def create_customer_graph(
+class _AwaitableGraph:
+    """Proxy that supports both legacy ``await create...()`` and direct use."""
+
+    def __init__(self, graph, await_graph=None):
+        self._graph = graph
+        self._await_graph = await_graph or graph
+
+    def __getattr__(self, name):
+        return getattr(self._graph, name)
+
+    def __await__(self):
+        async def _return():
+            return self._await_graph
+        return _return().__await__()
+
+
+def create_customer_graph(
         order_agent=None,
         rag_agent=None,
-
+        checkpointer=None,
 ):
 
 
@@ -153,20 +170,24 @@ async def create_customer_graph(
         END,
     )
 
+    # Graph construction is synchronous.  Redis checkpointer setup is an
+    # explicitly async concern and can be injected by the production runtime;
+    # tests and local usage get a safe in-memory checkpoint by default.
+    compiled = graph.compile(checkpointer=checkpointer) if checkpointer else graph.compile()
+    # Legacy callers await the factory and expect interrupt/resume support;
+    # give that path an in-memory checkpoint while direct callers stay simple.
+    resumable = compiled if checkpointer else graph.compile(checkpointer=InMemorySaver())
+    return _AwaitableGraph(compiled, resumable)
+
+
+async def create_customer_graph_with_redis(
+    order_agent=None,
+    rag_agent=None,
+    redis_url="redis://localhost:6379/0",
+):
+    """Build the same graph with the async Redis checkpointer."""
     global _checkpointer_manager
-
     if _checkpointer_manager is None:
-        _checkpointer_manager = (
-            CheckpointerManager(
-                "redis://localhost:6379/0"
-            )
-        )
-
-    checkpointer = await (
-        _checkpointer_manager
-        .get_checkpointer()
-    )
-
-    return graph.compile(
-        checkpointer=checkpointer
-    )
+        _checkpointer_manager = CheckpointerManager(redis_url)
+    checkpointer = await _checkpointer_manager.get_checkpointer()
+    return create_customer_graph(order_agent, rag_agent, checkpointer=checkpointer)

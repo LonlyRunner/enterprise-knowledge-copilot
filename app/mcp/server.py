@@ -11,14 +11,13 @@ async def query_order(order_id: str):
     """
     查询订单状态
     """
+    # Keep the tool result flat.  MCP clients and the HTTP API can then use
+    # the same stable schema without having to special-case ``data``.
     return {
-        "success": True,
-        "data": {
-            "order_id": order_id,
-            "status": "运输中",
-            "customer": "张三",
-            "created_at": "2026-08-25 10:00:00"
-        }
+        "order_id": order_id,
+        "status": "运输中",
+        "customer": "张三",
+        "created_at": "2026-08-25 10:00:00",
     }
 
 if __name__ == "__main__":

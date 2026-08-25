@@ -3,7 +3,6 @@ from langgraph.graph import (
     START,
     END,
 )
-from redisvl.extensions.cache import llm
 
 from app.agent.multi.handoff import handoff_router
 from app.agent.multi.router import SupervisorRouter
@@ -26,7 +25,7 @@ from app.agent.multi.agents import (
 
 
 def create_multi_agent_graph(
-    llm,
+    llm=None,
 ):
 
 
@@ -42,9 +41,20 @@ def create_multi_agent_graph(
     ticket = TicketAgent()
 
 
-    router = SupervisorRouter(
-        llm
-    )
+    if llm is None:
+        class _DeterministicRouter:
+            async def route(self, question: str):
+                if any(word in question for word in ("投诉", "售后", "人工")):
+                    agent, reason = "ticket", "售后或人工服务"
+                elif any(word in question for word in ("订单", "物流", "配送", "退款")):
+                    agent, reason = "order", "订单或物流问题"
+                else:
+                    agent, reason = "rag", "知识库问题"
+                return type("Route", (), {"agent": agent, "reason": reason})()
+
+        router = _DeterministicRouter()
+    else:
+        router = SupervisorRouter(llm)
 
 
     async def supervisor_wrapper(

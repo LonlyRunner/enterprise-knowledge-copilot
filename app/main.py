@@ -14,6 +14,8 @@ from app.core.exceptions import AppException
 from app.db import init_database
 from app.db.session import engine
 from app.observability import setup_opentelemetry
+from app.cache.semantic import close_cache_redis
+from app.api.v1.endpoints.chat import close_llm_client
 
 
 settings = get_settings()
@@ -32,6 +34,8 @@ async def lifespan(
 
     yield
 
+    await close_cache_redis()
+    await close_llm_client()
     await engine.dispose()
 
 

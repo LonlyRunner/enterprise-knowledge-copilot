@@ -9,6 +9,15 @@ class Settings(BaseSettings):
     db_echo: bool = False
     db_pool_size: int = 10
     db_max_overflow: int = 20
+    db_pool_timeout_seconds: float = 30.0
+    db_pool_recycle_seconds: int = 1800
+    db_pool_use_lifo: bool = True
+    db_command_timeout_seconds: float = 60.0
+    http_max_connections: int = 100
+    http_max_keepalive_connections: int = 20
+    http_keepalive_expiry_seconds: float = 30.0
+    retry_max_attempts: int = 3
+    retry_base_delay_seconds: float = 0.5
     llm_provider: str = "deepseek"
     deepseek_api_key: str
     deepseek_base_url: str = "https://api.deepseek.com"
@@ -20,6 +29,10 @@ class Settings(BaseSettings):
     embedding_timeout: float = 60.0
     llm_temperature: float = 0.7
     llm_timeout: float = 60.0
+    stream_keepalive_seconds: int = 15
+    embedding_batch_size: int = 32
+    embedding_max_concurrency: int = 2
+    diagnostics_enabled: bool = True
     document_storage_path: str = "storage/documents"
     max_upload_size_mb: int = 20
     celery_broker_url: str = "redis://127.0.0.1:6379/0"

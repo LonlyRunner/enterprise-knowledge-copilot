@@ -45,6 +45,10 @@ class BaseLLMClient(ABC):
 
         raise NotImplementedError
 
+    async def close(self) -> None:
+        """Release pooled HTTP resources (safe no-op for test doubles)."""
+        return None
+
 
 @dataclass
 class ToolCall:

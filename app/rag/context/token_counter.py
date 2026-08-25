@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from functools import lru_cache
 
 import tiktoken
 
@@ -24,12 +25,7 @@ class TokenCounter:
         if not text:
             return 0
 
-        return len(
-            self.encoding.encode(
-                text,
-                disallowed_special=(),
-            )
-        )
+        return _count_cached(self.encoding.name, text)
 
     def count_messages(
         self,
@@ -56,3 +52,10 @@ class TokenCounter:
         total += 2
 
         return total
+
+
+@lru_cache(maxsize=4096)
+def _count_cached(encoding_name: str, text: str) -> int:
+    """Avoid re-tokenizing repeated system prompts and cached history."""
+    encoding = tiktoken.get_encoding(encoding_name)
+    return len(encoding.encode(text, disallowed_special=()))

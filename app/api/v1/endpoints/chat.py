@@ -22,6 +22,10 @@ router = APIRouter()
 llm_client = create_llm_client()
 
 
+async def close_llm_client() -> None:
+    await llm_client.close()
+
+
 @router.post(
     "/stream-test"
 )
@@ -103,7 +107,8 @@ async def rag_chat_stream(
     async def event_generator() -> AsyncIterator[str]:
         yield encode_sse("start", {"conversation_id": str(request.conversation_id)})
         try:
-            async for event in RagService(session=db).chat_stream(
+            service = RagService(session=db)
+            async for event in service.chat_stream(
                 knowledge_base_id=request.knowledge_base_id,
                 conversation_id=request.conversation_id,
                 question=request.question,
@@ -112,6 +117,9 @@ async def rag_chat_stream(
                 yield encode_sse(event["event"], event["data"])
         except Exception as exc:
             yield encode_sse("error", {"message": str(exc)})
+        finally:
+            if "service" in locals():
+                await service.close()
 
     return StreamingResponse(
         event_generator(),

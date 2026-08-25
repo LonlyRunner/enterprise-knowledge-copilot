@@ -51,18 +51,17 @@ async def index_document(
         session=db
     )
 
-    response = await rag_service.index_document(
-        knowledge_base_id=(
-            request.knowledge_base_id
-        ),
-        file_path=request.file_path,
-    )
     cache = SemanticCache()
     try:
+        response = await rag_service.index_document(
+            knowledge_base_id=request.knowledge_base_id,
+            file_path=request.file_path,
+        )
         await cache.invalidate_knowledge_base(str(request.knowledge_base_id))
+        return response
     finally:
         await cache.close()
-    return response
+        await rag_service.close()
 
 
 @router.post(
@@ -97,6 +96,7 @@ async def query_rag(
         return payload
     finally:
         await cache.close()
+        await rag_service.close()
 
 @router.post(
     "/rag/evaluation/retrieval",
@@ -305,18 +305,15 @@ async def rag_chat(
         )
     )
 
-    return await rag_service.chat(
-        knowledge_base_id=(
-            request.knowledge_base_id
-        ),
-        conversation_id=(
-            request.conversation_id
-        ),
-        question=(
-            request.question
-        ),
-        top_k=request.top_k,
-    )
+    try:
+        return await rag_service.chat(
+            knowledge_base_id=request.knowledge_base_id,
+            conversation_id=request.conversation_id,
+            question=request.question,
+            top_k=request.top_k,
+        )
+    finally:
+        await rag_service.close()
 
 
 @router.post(
