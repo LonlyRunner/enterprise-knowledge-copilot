@@ -1,53 +1,81 @@
 from typing import Any
 
 from app.tools.base import ToolRegistry
-from app.services.business_gateway import (
-    BusinessGateway,
-)
 
 
 class DefaultToolExecutor:
     """
-    默认工具执行器
+    通用工具执行器
 
-    负责：
-    - 找工具
-    - 参数检查
-    - 调用业务服务
-    - 返回结构化结果
+    职责：
+
+    1. 根据 tool_name 找 Tool
+    2. 调用 Tool.execute()
+    3. 返回结构化结果
+
+    不包含业务判断
     """
+
 
     def __init__(
         self,
         registry: ToolRegistry,
-        business_gateway: BusinessGateway,
     ):
+
         self.registry = registry
-        self.business_gateway = business_gateway
+
+
 
     async def execute(
-            self,
-            tool_name: str,
-            arguments: dict,
-            *,
-            tenant_id: str,
-            user_id: str,
-            trace_id: str,
-    ):
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        *,
+        tenant_id: str,
+        user_id: str,
+        trace_id: str,
+    ) -> dict[str, Any]:
+
+
         tool = self.registry.get(
             tool_name
         )
 
+
         if tool is None:
+
             return {
                 "success": False,
                 "error_code":
-                    "TOOL_NOT_FOUND",
+                "TOOL_NOT_FOUND",
             }
 
-        return await tool.execute(
-            arguments,
-            tenant_id=tenant_id,
-            user_id=user_id,
-            trace_id=trace_id,
-        )
+
+        try:
+
+            result = await tool.execute(
+                arguments,
+
+                tenant_id=tenant_id,
+
+                user_id=user_id,
+
+                trace_id=trace_id,
+            )
+
+
+            return result
+
+
+        except Exception as exc:
+
+            return {
+
+                "success": False,
+
+                "error_code":
+                "TOOL_EXECUTION_ERROR",
+
+                "message":
+                str(exc),
+            }
