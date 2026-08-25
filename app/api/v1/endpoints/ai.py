@@ -16,11 +16,15 @@ from app.gateway.schemas import (
     GatewayRequest,
     GatewayResponse,
 )
-
+from app.agent.langgraph.graph import (
+    create_customer_graph,
+)
 
 from app.rag.service import RagService
 
-
+from app.agent.runtime import (
+    create_agent_graph,
+)
 
 router = APIRouter(
     prefix="/ai",
@@ -28,6 +32,10 @@ router = APIRouter(
 )
 
 
+agent_graph = create_customer_graph(
+    order_agent=None,
+    rag_agent=None,
+)
 
 def create_gateway_service(
     session: AsyncSession,
@@ -38,10 +46,18 @@ def create_gateway_service(
     )
 
 
-    return GatewayService(
-        rag_service=rag_service
+    agent_graph = (
+        create_agent_graph()
     )
 
+
+    return GatewayService(
+
+        rag_service=rag_service,
+
+        agent_graph=agent_graph,
+
+    )
 
 
 @router.post(

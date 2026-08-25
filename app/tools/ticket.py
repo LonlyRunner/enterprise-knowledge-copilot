@@ -1,7 +1,44 @@
+from app.services import BusinessGateway
 from app.tools.base import ToolDefinition
 
 
 class CreateTicketTool:
+
+    def __init__(
+            self,
+            gateway: BusinessGateway,
+    ):
+        self.gateway = gateway
+
+        async def execute(
+                self,
+                arguments: dict,
+                *,
+                tenant_id: str,
+                user_id: str,
+                trace_id: str,
+        ):
+            order_id = arguments.get(
+                "order_id"
+            )
+
+            reason = arguments.get(
+                "reason"
+            )
+
+            if not order_id or not reason:
+                return {
+                    "success": False,
+                    "error_code":
+                        "INVALID_ARGUMENT",
+                }
+
+            return await self.gateway.create_ticket(
+                order_id,
+                reason,
+                tenant_id=tenant_id,
+                user_id=user_id,
+            )
 
     definition = ToolDefinition(
 
@@ -42,4 +79,7 @@ class CreateTicketTool:
         side_effect=True,
 
         requires_approval=True,
+
+
+
     )

@@ -9,17 +9,18 @@ from app.rag.service import RagService
 
 class GatewayService:
 
-
     def __init__(
-        self,
-        rag_service=None,
-        agent_executor=None,
+            self,
+            rag_service=None,
+            agent_executor=None,
+            agent_graph=None,
     ):
 
         self.rag_service = rag_service
 
         self.agent_executor = agent_executor
 
+        self.agent_graph = agent_graph
 
 
     async def execute(
@@ -101,18 +102,14 @@ class GatewayService:
 
         )
 
-
-
     async def _execute_agent(
-        self,
-        request,
-        request_id,
-        trace_id,
+            self,
+            request,
+            request_id,
+            trace_id,
     ):
 
-
-        if self.agent_executor is None:
-
+        if self.agent_graph is None:
             return GatewayResponse(
 
                 request_id=request_id,
@@ -125,11 +122,37 @@ class GatewayService:
 
             )
 
+        state = {
 
-        result = await self.agent_executor.run(
-            request.message
+            "question":
+                request.message,
+
+            "intent":
+                None,
+
+            "answer":
+                None,
+
+            "tenant_id":
+                request.tenant_id or "default",
+
+            "user_id":
+                request.user_id or "demo-user",
+
+            "trace_id":
+                trace_id,
+
+            "need_human_review":
+                False,
+
+            "human_action":
+                None,
+
+        }
+
+        result = await self.agent_graph.ainvoke(
+            state
         )
-
 
         return GatewayResponse(
 
@@ -139,6 +162,21 @@ class GatewayService:
 
             status="completed",
 
-            answer=result
+            answer=result.get(
+                "answer"
+            ),
+
+            agent_steps=[
+
+                {
+                    "agent":
+                        result.get("intent"),
+
+                    "status":
+                        "completed",
+
+                }
+
+            ],
 
         )
