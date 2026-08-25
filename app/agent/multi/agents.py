@@ -1,3 +1,9 @@
+from app.core.observability.tracer import (
+    AgentTracer,
+)
+
+
+
 class OrderAgent:
 
 
@@ -6,26 +12,35 @@ class OrderAgent:
         state,
     ):
 
+        tracer = AgentTracer()
 
-        question = state["question"]
+
+        tracer.start(
+            "order_agent"
+        )
+
+
+        question = (
+            state["question"]
+        )
 
 
         if "退款" in question:
 
-
-            state["handoff_to"] = "ticket"
-
-
-            print(
-                "Order Agent handoff -> ticket"
+            state["handoff_to"] = (
+                "ticket"
             )
 
 
-            return state
+        else:
+
+            state["answer"] = (
+                "订单运输中"
+            )
 
 
-        state["answer"] = (
-            "订单正在运输"
+        tracer.end(
+            "order_agent"
         )
 
 
