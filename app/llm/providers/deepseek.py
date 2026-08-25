@@ -13,7 +13,7 @@ from app.core.exceptions import (
 from app.llm.base import (
     BaseLLMClient,
     LLMResult,
-    TokenUsage,
+    TokenUsage, ToolCall, LLMMessage,
 )
 
 
@@ -251,3 +251,69 @@ class DeepSeekLLMClient(BaseLLMClient):
 
     async def close(self):
         await self.client.aclose()
+
+    async def chat_with_tools(
+            self,
+            messages,
+            tools,
+    ):
+
+        payload = {
+
+            "model":
+                self.model,
+
+            "messages":
+                messages,
+
+            "tools":
+                tools,
+
+            "temperature":
+                0,
+
+        }
+
+        response = await self.client.post(
+            f"{self.base_url}/chat/completions",
+            json=payload,
+            headers=self.headers,
+        )
+
+        data = response.json()
+
+        message = (
+            data["choices"][0]["message"]
+        )
+
+        tool_calls = []
+
+        for call in message.get(
+                "tool_calls",
+                []
+        ):
+            tool_calls.append(
+
+                ToolCall(
+
+                    id=call["id"],
+
+                    name=
+                    call["function"]["name"],
+
+                    arguments=
+                    json.loads(
+                        call["function"]["arguments"]
+                    ),
+                )
+            )
+
+        return LLMMessage(
+
+            role="assistant",
+
+            content=
+            message.get("content"),
+
+            tool_calls=tool_calls,
+        )

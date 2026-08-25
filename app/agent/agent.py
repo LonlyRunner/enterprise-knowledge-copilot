@@ -1,21 +1,166 @@
-class ReactAgent:
-    def __init__(self, llm_client=None, tools=()):
-        self.llm_client = llm_client
-        self.tools = {tool.name: tool for tool in tools if hasattr(tool, "name")}
+import json
 
-    async def run(self, question: str):
-        if self.llm_client is None:
-            return f"无法执行智能代理请求：{question}"
-        state = []
-        for _ in range(8):
-            decision = await self.llm_client.chat(question)
-            if getattr(decision, "type", None) == "tool":
-                tool = self.tools.get(decision.tool_name)
-                if tool is None:
-                    return "请求的工具不存在。"
-                result = await tool.execute(decision.input)
-                state.append(result)
-                question = f"{question}\n工具结果：{result}"
-            else:
-                return decision.answer
-        return "智能代理达到最大执行步数。"
+
+class NativeAgent:
+
+
+    def __init__(
+        self,
+        llm,
+        executor,
+        registry,
+        max_steps=5,
+    ):
+        self.llm = llm
+        self.executor = executor
+        self.registry = registry
+        self.max_steps = max_steps
+
+    async def run(
+            self,
+            question,
+            *,
+            tenant_id,
+            user_id,
+            trace_id,
+    ):
+
+        messages = [
+            {
+                "role": "user",
+                "content": question,
+            }
+        ]
+
+        for step in range(
+                self.max_steps
+        ):
+
+            response = await self.llm.chat_with_tools(
+                messages,
+                self.registry.schemas(),
+            )
+
+            messages.append(
+                {
+                    "role":
+                        "assistant",
+
+                    "content":
+                        response.content,
+
+                }
+            )
+
+            if not response.tool_calls:
+                return {
+                    "answer":
+                        response.content,
+
+                    "steps":
+                        step + 1,
+                }
+
+            for call in response.tool_calls:
+                result = await self.executor.execute(
+
+                    call.name,
+
+                    call.arguments,
+
+                    tenant_id=tenant_id,
+
+                    user_id=user_id,
+
+                    trace_id=trace_id,
+
+                )
+
+                messages.append(
+
+                    {
+
+                        "role":
+                            "tool",
+
+                        "tool_call_id":
+                            call.id,
+
+                        "name":
+                            call.name,
+
+                        "content":
+                            json.dumps(
+                                result,
+                                ensure_ascii=False,
+                            ),
+
+                    }
+
+                )
+
+        return {
+
+            "answer":
+                "执行超过最大步骤",
+
+            "steps":
+                self.max_steps,
+
+        }
+
+
+
+class ReactAgent:
+    """
+    旧版 Agent 兼容入口
+
+    保留旧测试和旧代码调用方式。
+
+    新代码使用 NativeAgent。
+    """
+
+    def __init__(
+        self,
+        tools=None,
+        **kwargs,
+    ):
+
+        self.tools = tools or []
+
+
+    async def run(
+        self,
+        question,
+        **kwargs,
+    ):
+
+        """
+        兼容旧测试
+
+        暂时模拟旧 Tool 行为
+        """
+
+        for tool in self.tools:
+
+            if tool is None:
+                continue
+
+            if not hasattr(tool, "execute"):
+                continue
+
+            result = await tool.execute(
+                question
+            )
+
+            if result:
+
+                return {
+                    "answer": result
+                }
+
+
+        return {
+            "answer":
+            "无法处理该问题"
+        }
