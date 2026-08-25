@@ -5,11 +5,6 @@ from langgraph.graph import (
 )
 
 
-from langgraph.checkpoint.memory import (
-    MemorySaver,
-)
-
-
 from app.agent.langgraph.state import (
     AgentState,
 )
@@ -26,6 +21,14 @@ from app.agent.langgraph.agents import (
     RagAgentNode,
 )
 
+
+from app.agent.langgraph.checkpointer import (
+    create_checkpointer,
+)
+
+from app.core.config import (
+    get_settings,
+)
 
 
 def create_customer_graph(
@@ -99,6 +102,7 @@ def create_customer_graph(
             "knowledge",
 
         }
+
     )
 
 
@@ -145,8 +149,18 @@ def create_customer_graph(
         END,
     )
 
+    settings = get_settings()
 
-    checkpointer = MemorySaver()
+    settings = get_settings()
+
+    # checkpointer = (
+    #     create_checkpointer(
+    #         settings.langgraph_checkpoint_url
+    #     )
+    # )
+    checkpointer = (
+        create_checkpointer()
+    )
 
 
     return graph.compile(
