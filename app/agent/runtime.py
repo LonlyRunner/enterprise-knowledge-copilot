@@ -1,5 +1,3 @@
-from app.agent.agent import NativeAgent
-
 from app.agent.langgraph.graph import (
     create_customer_graph,
 )
@@ -18,10 +16,13 @@ def create_agent_graph():
     )
 
 
-    return create_customer_graph(
+    graph = create_customer_graph(
 
         order_agent=native_agent,
 
         rag_agent=None,
 
     )
+
+
+    return graph

@@ -46,9 +46,7 @@ def create_gateway_service(
     )
 
 
-    agent_graph = (
-        create_agent_graph()
-    )
+    agent_graph = create_agent_graph()
 
 
     return GatewayService(
