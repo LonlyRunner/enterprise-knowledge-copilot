@@ -7,21 +7,21 @@ class OrderAgent:
     ):
 
 
-        question = (
-            state["question"]
-        )
+        question = state["question"]
 
 
         if "退款" in question:
 
 
-            state["handoff_to"] = (
-                "ticket"
+            state["handoff_to"] = "ticket"
+
+
+            print(
+                "Order Agent handoff -> ticket"
             )
 
 
             return state
-
 
 
         state["answer"] = (
@@ -49,7 +49,6 @@ class RagAgent:
         return state
 
 
-
 class TicketAgent:
 
 
@@ -57,6 +56,11 @@ class TicketAgent:
         self,
         state,
     ):
+
+
+        print(
+            "Ticket Agent running"
+        )
 
 
         state["answer"] = (

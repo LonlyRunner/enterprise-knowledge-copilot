@@ -9,22 +9,21 @@ async def supervisor_node(
     router,
 ):
 
-
-    result = await (
-        router.route(
-            state["question"]
-        )
+    result = await router.route(
+        state["question"]
     )
 
 
-    state["next_agent"] = (
-        result.agent
+    print(
+        "Supervisor route:",
+        result.agent,
+        result.reason,
     )
 
 
-    state["route_reason"] = (
-        result.reason
-    )
+    state["next_agent"] = result.agent
+
+    state["route_reason"] = result.reason
 
 
     return state
