@@ -15,6 +15,13 @@ from langchain_core.outputs import (
 )
 
 
+from langchain_core.tools import BaseTool
+
+from langchain_core.messages import (
+    ToolMessage,
+)
+
+
 class DeepSeekChatAdapter(
     BaseChatModel
 ):
@@ -52,8 +59,37 @@ class DeepSeekChatAdapter(
             last_message.content
         )
 
+        tool_calls = []
+
+        if hasattr(
+                result,
+                "tool_calls"
+        ):
+
+            for call in result.tool_calls:
+                tool_calls.append(
+
+                    {
+
+                        "id":
+                            call.id,
+
+                        "name":
+                            call.name,
+
+                        "args":
+                            call.arguments,
+
+                    }
+
+                )
+
         message = AIMessage(
-            content=result.content
+
+            content=result.content,
+
+            tool_calls=tool_calls,
+
         )
 
         generation = ChatGeneration(
@@ -69,3 +105,19 @@ class DeepSeekChatAdapter(
     @property
     def _llm_type(self):
         return "deepseek"
+
+    def bind_tools(
+            self,
+            tools,
+            **kwargs,
+    ):
+        """
+        LangChain Tool Calling入口
+
+        tools:
+            StructuredTool列表
+        """
+
+        self.bound_tools = tools
+
+        return self
