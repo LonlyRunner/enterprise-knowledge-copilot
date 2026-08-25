@@ -155,9 +155,6 @@ B4 Docker、全链路测试和 CI/CD 学习手册：
 
 [docs/B4_Docker_CI-CD_AI-Agent_实战学习手册.md](docs/B4_Docker_CI-CD_AI-Agent_实战学习手册.md)
 
-项目 C 最终交付总结与学习手册：
-
-[docs/项目C_最终交付总结与学习手册.md](docs/项目C_最终交付总结与学习手册.md)
 
 ```powershell
 .venv\Scripts\python.exe -m alembic upgrade head
