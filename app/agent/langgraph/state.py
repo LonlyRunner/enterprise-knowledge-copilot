@@ -12,12 +12,14 @@ class AgentState(
     answer: str | None
 
 
+    usage: dict
+
+
     tenant_id: str
 
     user_id: str
 
     trace_id: str
-
 
     need_human_review: bool
 

@@ -79,6 +79,10 @@ class RagAgentNode:
 
 
         state["answer"] = result
+        state["usage"] = result.get(
+            "usage",
+            {}
+        )
 
 
         return state

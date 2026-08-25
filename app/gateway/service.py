@@ -14,6 +14,7 @@ class GatewayService:
             rag_service=None,
             agent_executor=None,
             agent_graph=None,
+            limiter=None
     ):
 
         self.rag_service = rag_service
@@ -22,17 +23,40 @@ class GatewayService:
 
         self.agent_graph = agent_graph
 
+        self.limiter = limiter
+
 
     async def execute(
         self,
         request: GatewayRequest,
     ) -> GatewayResponse:
 
-
         request_id = str(uuid4())
+
+        task_id = str(uuid4())
 
         trace_id = str(uuid4())
 
+        if self.limiter:
+
+            allowed = await self.limiter.check(
+
+                f"user:{request.user_id}"
+
+            )
+
+            if not allowed:
+                return GatewayResponse(
+
+                    request_id=request_id,
+
+                    trace_id=trace_id,
+
+                    status="failed",
+
+                    answer="rate limit exceeded",
+
+                )
 
         if request.mode == "rag":
 
@@ -57,14 +81,17 @@ class GatewayService:
             return GatewayResponse(
                 request_id=request_id,
                 trace_id=trace_id,
+                task_id=task_id,
                 status="completed",
                 answer="chat mode not implemented",
+
             )
 
     async def _execute_rag(
             self,
             request,
             request_id,
+            task_id,
             trace_id,
     ):
 
@@ -72,6 +99,7 @@ class GatewayService:
             return GatewayResponse(
                 request_id=request_id,
                 trace_id=trace_id,
+                task_id=task_id,
                 status="failed",
                 answer="RAG service unavailable",
             )
@@ -99,6 +127,10 @@ class GatewayService:
                 source.model_dump()
                 for source in result.sources
             ],
+            usage=result.get(
+                "usage",
+                {}
+            )
 
         )
 
@@ -106,6 +138,7 @@ class GatewayService:
             self,
             request,
             request_id,
+            task_id,
             trace_id,
     ):
 
@@ -115,10 +148,12 @@ class GatewayService:
                 request_id=request_id,
 
                 trace_id=trace_id,
+                task_id=task_id,
 
                 status="failed",
 
                 answer="Agent unavailable"
+
 
             )
 
@@ -178,5 +213,9 @@ class GatewayService:
                 }
 
             ],
+            usage=result.get(
+                "usage",
+                {}
+            )
 
         )

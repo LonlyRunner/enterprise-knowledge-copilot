@@ -79,13 +79,21 @@ class NativeAgent:
             # 直接结束
 
             if not response.tool_calls:
-
                 return {
+
                     "answer":
-                    response.content,
+                        response.content,
 
                     "steps":
-                    step + 1,
+                        step + 1,
+
+                    "usage":
+                        getattr(
+                            response,
+                            "usage",
+                            {}
+                        ),
+
                 }
 
 
