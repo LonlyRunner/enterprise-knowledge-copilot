@@ -1,5 +1,6 @@
 from langchain.agents import create_agent
 
+from app.agent.langchain.mcp_adapter import mcp_tool_to_langchain_tool
 
 
 def create_langchain_agent(
@@ -39,3 +40,31 @@ def create_conversation_agent(
         llm,
         tools,
     )
+
+
+async def load_mcp_tools(
+    mcp_client,
+):
+
+
+    tools = []
+
+
+    schemas = await (
+        mcp_client.list_tools()
+    )
+
+
+    for schema in schemas:
+
+        tools.append(
+
+            mcp_tool_to_langchain_tool(
+                mcp_client,
+                schema,
+            )
+
+        )
+
+
+    return tools
