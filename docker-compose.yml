@@ -41,6 +41,13 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
+  mcp:
+    build: .
+    command: python -m app.mcp.enterprise_server
+    ports: ["8001:8001"]
+    env_file: [.env]
+    depends_on:
+      redis: {condition: service_healthy}
   nginx:
     image: nginx:1.27-alpine
     ports: ["8080:80"]

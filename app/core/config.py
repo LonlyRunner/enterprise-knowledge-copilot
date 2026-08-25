@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     embedding_batch_size: int = 32
     embedding_max_concurrency: int = 2
     diagnostics_enabled: bool = True
+    gateway_rate_limit_per_minute: int = 60
+    gateway_audit_ttl_seconds: int = 604800
+    gateway_default_mode: str = "auto"
+    # Deterministic local routing; production can override this with a real
+    # provider model such as deepseek-chat.
+    gateway_default_model: str = "project-c-router"
+    mcp_server_url: str = "http://127.0.0.1:8001/mcp"
+    mcp_external_enabled: bool = False
     document_storage_path: str = "storage/documents"
     max_upload_size_mb: int = 20
     celery_broker_url: str = "redis://127.0.0.1:6379/0"

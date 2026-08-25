@@ -1,8 +1,9 @@
 from app.tools.order import QueryOrderTool
-from app.services.business_gateway import BusinessGateway
+from app.services.business_gateway import MockBusinessGateway
 
-# 创建单例工具实例
-_gateway = BusinessGateway()
+# 创建单例工具实例。BusinessGateway 是协议，不能直接实例化；本地 MCP
+# 适配器使用与企业联调页面相同的文件型 Mock 网关。
+_gateway = MockBusinessGateway()
 _query_order_tool = QueryOrderTool(gateway=_gateway)
 
 async def query_order_tool(order_id: str, tenant_id: str = "default", user_id: str = "default"):

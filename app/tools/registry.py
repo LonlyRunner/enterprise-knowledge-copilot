@@ -39,7 +39,7 @@ def create_tool_registry(
     )
 
     registry.register(
-        CreateTicketTool()
+        CreateTicketTool(gateway)
     )
     if rag_service:
         registry.register(

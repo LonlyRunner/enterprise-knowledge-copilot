@@ -42,6 +42,16 @@ JSON 问答响应 + Citation Sources
 http://localhost:8000/ui/
 ```
 
+项目 C（统一 AI Gateway、多 Agent、MCP、审批和 SSE）的完整文件地图、学习章节与验收案例见：
+
+[`docs/项目C_最终交付总结与学习手册.md`](docs/项目C_最终交付总结与学习手册.md)
+
+项目 C 联调页：
+
+```text
+http://localhost:8000/ui/project-c.html
+```
+
 ## 当前已使用的技术栈
 
 | 能力 | 当前实现 |

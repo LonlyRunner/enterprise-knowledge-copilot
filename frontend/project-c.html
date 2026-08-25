@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>星云科技 · 项目 C AI Gateway</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./project-c.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <div><p class="eyebrow">PROJECT C · AI GATEWAY</p><h1>星云科技有限公司 · 企业 AI 工作台</h1><p>统一入口连接 Chat Agent、RAG Agent、Action Agent 和 MCP 企业工具。</p></div>
+    <nav><a href="./index.html">知识库</a><a href="./orders.html">订单联调</a><a href="./performance.html">性能联调</a></nav>
+  </header>
+  <section class="toolbar">
+    <label>API 地址 <input id="apiBase" value="/api/v1"></label>
+    <label>模式 <select id="mode"><option value="auto">自动编排</option><option value="agent">Agent 工作流</option><option value="chat">Chat Agent</option><option value="rag">RAG Agent</option></select></label>
+    <label>知识库 <select id="knowledgeBase"><option value="">不指定知识库</option></select></label>
+    <label class="check"><input id="approve" type="checkbox"> 批准写操作</label>
+    <button id="healthBtn" class="secondary">检查 Gateway</button><span id="status">未请求</span>
+  </section>
+  <section class="workspace">
+    <section class="card composer">
+      <div class="section-head"><div><p class="eyebrow dark">UNIFIED ENTRY</p><h2>向 AI Gateway 提交任务</h2></div><button id="streamBtn" class="secondary">SSE 流式</button></div>
+      <textarea id="question" maxlength="10000">查询订单 XN-2026-000381 的物流，如果异常就创建售后工单。</textarea>
+      <div class="samples"><button data-question="总结一下今年销售情况，并生成一个报告，如果发现异常订单帮我创建工单。">销售分析 + 异常工单</button><button data-question="查询订单 XN-2026-000381 的物流，如果异常就创建售后工单。">订单物流 + 售后</button><button data-question="查询合同中的付款条件，然后帮我创建审批流程。">合同查询 + 审批</button></div>
+      <button id="sendBtn" class="primary">提交 AI Gateway</button>
+    </section>
+    <section class="card result">
+      <div class="section-head"><div><p class="eyebrow dark">AGENT RESULT</p><h2 id="resultStatus">等待执行</h2></div><span id="routeBadge" class="badge muted">未路由</span></div>
+      <div id="answer" class="answer">提交任务后，这里会显示最终回答。</div>
+      <div class="columns"><div><h3>Agent 执行步骤</h3><div id="steps" class="steps empty">暂无步骤</div></div><div><h3>MCP Tool Calls</h3><div id="tools" class="steps empty">暂无工具调用</div></div></div>
+      <div id="approvalBox" class="approval" hidden></div>
+      <details><summary>完整 Gateway 响应</summary><pre id="raw">暂无</pre></details>
+    </section>
+  </section>
+  <section class="card guide"><h2>项目 C 演示说明</h2><p>请求先进入 AI Gateway，再由 Supervisor 拆解为 RAG、Action 和 Chat 专业任务。Action Agent 通过 MCP 企业能力查询订单；创建工单等有副作用操作默认只返回审批请求，勾选“批准写操作”后才执行。</p><div class="flow">User → AI Gateway → Supervisor → Chat / RAG / Action → MCP Tool / Resource / Prompt → Business System</div></section>
+</main>
+<script src="./project-c.js" defer></script>
+</body>
+</html>

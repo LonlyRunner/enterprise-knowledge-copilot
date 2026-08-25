@@ -1,121 +1,86 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-)
+from collections.abc import AsyncIterator
 
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.db.dependencies import get_db
+from app.gateway.limiter import RateLimitExceeded
+from app.gateway.schemas import GatewayRequest, GatewayResponse
+from app.gateway.service import AIGatewayService
+from app.utils.sse import encode_sse
+
+router = APIRouter(prefix="/ai", tags=["AI Gateway"])
+service = AIGatewayService()
 
 
-from app.gateway.service import GatewayService
+def _context(user: User) -> tuple[str, str]:
+    # The local mock dataset uses demo-user while authenticated production
+    # users use their persisted id.
+    user_id = "demo-user" if user.id == "anonymous" else str(user.id)
+    return user.tenant_id, user_id
 
 
-from app.gateway.schemas import (
-    GatewayRequest,
-    GatewayResponse,
-)
-from app.agent.langgraph.graph import (
-    create_customer_graph,
-)
-
-from app.rag.service import RagService
-
-from app.agent.runtime import (
-    create_agent_graph,
-)
-
-router = APIRouter(
-    prefix="/ai",
-    tags=["AI Gateway"]
-)
-
-
-agent_graph = create_customer_graph(
-    order_agent=None,
-    rag_agent=None,
-)
-
-def create_gateway_service(
-    session: AsyncSession,
-):
-
-    rag_service = RagService(
-        session=session
-    )
+async def _run(request: GatewayRequest, db: AsyncSession, user: User) -> GatewayResponse:
+    tenant_id, user_id = _context(user)
+    try:
+        result = await service.handle(
+            request,
+            session=db,
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "RATE_LIMITED", "retry_after": exc.retry_after_seconds},
+        ) from exc
+    # AgentResult and GatewayResponse intentionally share the same contract,
+    # but Pydantic does not coerce a sibling model instance directly.
+    return GatewayResponse.model_validate(result.model_dump(mode="json"))
 
 
-    agent_graph = create_agent_graph()
-
-
-    return GatewayService(
-
-        rag_service=rag_service,
-
-        agent_graph=agent_graph,
-
-    )
-
-
-@router.post(
-    "/chat",
-    response_model=GatewayResponse,
-)
+@router.post("/chat", response_model=GatewayResponse)
 async def ai_chat(
     request: GatewayRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-
-    gateway_service = create_gateway_service(
-        db
-    )
-
-    return await gateway_service.execute(
-        request
-    )
+    return await _run(request, db, user)
 
 
-
-@router.post(
-    "/agent",
-    response_model=GatewayResponse,
-)
+@router.post("/agent", response_model=GatewayResponse)
 async def ai_agent(
     request: GatewayRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-
-    gateway_service = create_gateway_service(
-        db
-    )
-
-    request.mode = "agent"
+    request = request.model_copy(update={"mode": "agent"})
+    return await _run(request, db, user)
 
 
-    return await gateway_service.execute(
-        request
-    )
-
-
-
-@router.post(
-    "/rag",
-    response_model=GatewayResponse,
-)
-async def ai_rag(
+@router.post("/stream")
+async def ai_stream(
     request: GatewayRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-
-    gateway_service = create_gateway_service(
-        db
-    )
-
-
-    request.mode = "rag"
-
-
-    return await gateway_service.execute(
-        request
+    async def events() -> AsyncIterator[str]:
+        yield encode_sse("start", {})
+        try:
+            result = await _run(request, db, user)
+            for step in result.agent_steps:
+                yield encode_sse("step", step.model_dump(mode="json"))
+            for index in range(0, len(result.answer), 24):
+                yield encode_sse("delta", {"content": result.answer[index:index + 24]})
+            yield encode_sse("result", result.model_dump(mode="json"))
+            yield encode_sse("done", {})
+        except Exception as exc:
+            yield encode_sse("error", {"message": str(exc)})
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
