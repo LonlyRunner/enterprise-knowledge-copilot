@@ -5,6 +5,7 @@ from langgraph.graph import (
 )
 from redisvl.extensions.cache import llm
 
+from app.agent.multi.handoff import handoff_router
 from app.agent.multi.router import SupervisorRouter
 from app.agent.multi.state import (
     MultiAgentState,
@@ -24,7 +25,9 @@ from app.agent.multi.agents import (
 
 
 
-def create_multi_agent_graph():
+def create_multi_agent_graph(
+    llm,
+):
 
 
     graph = StateGraph(
@@ -39,10 +42,27 @@ def create_multi_agent_graph():
     ticket = TicketAgent()
 
 
+    router = SupervisorRouter(
+        llm
+    )
+
+
+    async def supervisor_wrapper(
+        state,
+    ):
+
+        return await supervisor_node(
+            state,
+            router,
+        )
+
+
+    # ===== Nodes =====
+
 
     graph.add_node(
         "supervisor",
-        supervisor_node,
+        supervisor_wrapper,
     )
 
 
@@ -63,22 +83,19 @@ def create_multi_agent_graph():
         ticket.run,
     )
 
-    router = SupervisorRouter(
-        llm
-    )
 
-    graph.add_node(
 
+    # ===== Entry =====
+
+
+    graph.add_edge(
+        START,
         "supervisor",
-
-        lambda state:
-        supervisor_node(
-            state,
-            router,
-        )
-
     )
 
+
+
+    # ===== Supervisor Routing =====
 
 
     graph.add_conditional_edges(
@@ -100,12 +117,30 @@ def create_multi_agent_graph():
             "ticket",
 
         }
+
     )
 
 
-    graph.add_edge(
+
+    # ===== Handoff =====
+
+
+    graph.add_conditional_edges(
+
         "order",
-        END,
+
+        handoff_router,
+
+        {
+
+            "ticket":
+            "ticket",
+
+            "end":
+            END,
+
+        }
+
     )
 
 

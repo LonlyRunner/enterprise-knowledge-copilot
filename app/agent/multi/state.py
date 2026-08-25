@@ -17,3 +17,5 @@ class MultiAgentState(
     history: list
 
     route_reason: str | None
+
+    handoff_to: str | None
