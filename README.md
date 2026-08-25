@@ -151,6 +151,10 @@ Redis 已实际用于 Celery、文档锁和无会话 RAG 查询缓存。缓存�
 
 ## 启动与验证
 
+B4 Docker、全链路测试和 CI/CD 学习手册：
+
+[docs/B4_Docker_CI-CD_AI-Agent_实战学习手册.md](docs/B4_Docker_CI-CD_AI-Agent_实战学习手册.md)
+
 ```powershell
 .venv\Scripts\python.exe -m alembic upgrade head
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload
