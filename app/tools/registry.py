@@ -22,6 +22,7 @@ from app.tools.ticket import (
 
 def create_tool_registry(
     gateway,
+    rag_service=None,
 ):
 
     registry = ToolRegistry()
@@ -40,6 +41,12 @@ def create_tool_registry(
     registry.register(
         CreateTicketTool()
     )
+    if rag_service:
+        registry.register(
+            KnowledgeSearchTool(
+                rag_service
+            )
+        )
 
 
     return registry
