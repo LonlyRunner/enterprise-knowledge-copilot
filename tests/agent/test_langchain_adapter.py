@@ -1,6 +1,3 @@
-import pytest
-
-
 from app.agent.langchain.adapters import (
     convert_to_langchain_tool,
 )
@@ -17,7 +14,7 @@ from app.services.business_gateway import (
 
 
 
-def test_convert_tool():
+def test_convert_query_order_tool():
 
 
     registry = create_tool_registry(
@@ -25,24 +22,26 @@ def test_convert_tool():
     )
 
 
-    tool = registry.get(
+    enterprise_tool = registry.get(
         "query_order"
     )
 
 
-    lc_tool = convert_to_langchain_tool(
-        tool
+    langchain_tool = (
+        convert_to_langchain_tool(
+            enterprise_tool
+        )
     )
 
 
     assert (
-        lc_tool.name
+        langchain_tool.name
         ==
         "query_order"
     )
 
 
     assert (
-        lc_tool.description
+        langchain_tool.description
         is not None
     )
