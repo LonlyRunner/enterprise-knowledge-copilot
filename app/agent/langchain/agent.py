@@ -1,12 +1,4 @@
-from langchain.agents import (
-    create_tool_calling_agent,
-    AgentExecutor,
-)
-
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-)
+from langchain.agents import create_agent
 
 
 def create_langchain_agent(
@@ -14,46 +6,23 @@ def create_langchain_agent(
     tools,
 ):
     """
-    创建 LangChain Tool Calling Agent
+    LangChain 1.x Agent
+
+    基于 create_agent
     """
 
 
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "你是企业智能客服助手，"
-                "根据工具结果回答用户问题。",
-            ),
+    agent = create_agent(
 
-            (
-                "human",
-                "{input}",
-            ),
-
-            MessagesPlaceholder(
-                variable_name="agent_scratchpad"
-            ),
-        ]
-    )
-
-
-    agent = create_tool_calling_agent(
-        llm,
-        tools,
-        prompt,
-    )
-
-
-    executor = AgentExecutor(
-        agent=agent,
+        model=llm,
 
         tools=tools,
 
-        verbose=True,
-
-        max_iterations=5,
+        system_prompt=(
+            "你是企业智能客服助手，"
+            "根据工具结果回答用户问题。"
+        ),
     )
 
 
-    return executor
+    return agent

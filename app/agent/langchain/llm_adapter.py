@@ -14,7 +14,7 @@ from langchain_core.outputs import (
     ChatResult,
 )
 
-
+from pydantic import Field
 from langchain_core.tools import BaseTool
 
 from langchain_core.messages import (
@@ -35,6 +35,10 @@ class DeepSeekChatAdapter(
 
     client: Any
 
+    bound_tools: list = Field(
+        default_factory=list
+    )
+
     def _generate(
             self,
             messages,
@@ -42,9 +46,23 @@ class DeepSeekChatAdapter(
             run_manager=None,
             **kwargs,
     ):
-        raise NotImplementedError(
-            "同步调用未实现，请使用异步"
+
+        print(
+            "DeepSeekChatAdapter._generate called"
         )
+
+        import asyncio
+
+        result = asyncio.get_event_loop().run_until_complete(
+            self._agenerate(
+                messages,
+                stop=stop,
+                run_manager=run_manager,
+                **kwargs,
+            )
+        )
+
+        return result
 
     async def _agenerate(
             self,
@@ -111,6 +129,12 @@ class DeepSeekChatAdapter(
             tools,
             **kwargs,
     ):
+
+        return self.model_copy(
+            update={
+                "bound_tools": tools
+            }
+        )
         """
         LangChain Tool Calling入口
 
