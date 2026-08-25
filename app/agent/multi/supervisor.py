@@ -5,37 +5,26 @@ from app.agent.multi.state import (
 
 
 async def supervisor_node(
-    state: MultiAgentState,
+    state,
+    router,
 ):
 
 
-    question = (
-        state["question"]
+    result = await (
+        router.route(
+            state["question"]
+        )
     )
 
 
-    if "订单" in question:
-
-        state["next_agent"] = (
-            "order"
-        )
+    state["next_agent"] = (
+        result.agent
+    )
 
 
-    elif (
-        "退款" in question
-        or "政策" in question
-    ):
-
-        state["next_agent"] = (
-            "rag"
-        )
-
-
-    else:
-
-        state["next_agent"] = (
-            "ticket"
-        )
+    state["route_reason"] = (
+        result.reason
+    )
 
 
     return state

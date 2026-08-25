@@ -3,8 +3,9 @@ from langgraph.graph import (
     START,
     END,
 )
+from redisvl.extensions.cache import llm
 
-
+from app.agent.multi.router import SupervisorRouter
 from app.agent.multi.state import (
     MultiAgentState,
 )
@@ -62,11 +63,20 @@ def create_multi_agent_graph():
         ticket.run,
     )
 
+    router = SupervisorRouter(
+        llm
+    )
 
+    graph.add_node(
 
-    graph.add_edge(
-        START,
         "supervisor",
+
+        lambda state:
+        supervisor_node(
+            state,
+            router,
+        )
+
     )
 
 

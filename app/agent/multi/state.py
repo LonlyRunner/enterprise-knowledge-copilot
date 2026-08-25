@@ -15,3 +15,5 @@ class MultiAgentState(
 
 
     history: list
+
+    route_reason: str | None
