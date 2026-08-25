@@ -5,27 +5,23 @@ from langgraph.types import interrupt
 
 
 async def intent_router(
-    state: AgentState,
+    state,
 ):
 
-
-    question = (
-        state["question"]
-    )
+    question = state["question"]
 
 
-    if "订单" in question:
+    if (
+        "订单" in question
+        or "退款" in question
+    ):
 
-        state["intent"] = (
-            "order"
-        )
+        state["intent"] = "order"
 
 
     else:
 
-        state["intent"] = (
-            "knowledge"
-        )
+        state["intent"] = "knowledge"
 
 
     return state

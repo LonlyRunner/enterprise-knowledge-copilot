@@ -1,19 +1,27 @@
 import pytest
-
+import os
+from langgraph.types import Command
 
 from app.agent.langgraph.graph import (
     create_customer_graph,
 )
 
-config = {
 
-    "configurable":
-    {
-        "thread_id":
-        "refund001"
-    }
+@pytest.mark.asyncio
+async def test_human_review_resume():
 
-}
+    os.environ[
+        "REDIS_URL"
+    ] = (
+        "redis://localhost:6379/0"
+    )
+
+
+    graph = await create_customer_graph(
+        FakeOrderAgent(),
+        FakeRagAgent(),
+    )
+
 
 class FakeOrderAgent:
 
@@ -25,10 +33,8 @@ class FakeOrderAgent:
     ):
 
         return {
-
             "answer":
-            "订单处理中"
-
+            "订单查询完成"
         }
 
 
@@ -41,48 +47,33 @@ class FakeRagAgent:
         question,
     ):
 
-        return (
-            "知识库回答"
-        )
-
-
-
-def build_test_graph():
-
-    return create_customer_graph(
-
-        order_agent=(
-            FakeOrderAgent()
-        ),
-
-        rag_agent=(
-            FakeRagAgent()
-        ),
-
-    )
+        return "知识库结果"
 
 
 
 @pytest.mark.asyncio
 async def test_human_review_interrupt():
-    graph = await (
-        create_customer_graph(
 
-            FakeOrderAgent(),
 
-            FakeRagAgent(),
+    graph = await create_customer_graph(
 
-        )
+        FakeOrderAgent(),
+
+        FakeRagAgent(),
+
     )
+
+    os.environ[
+        "REDIS_URL"
+    ] = "redis://localhost:6379/0"
+
 
     config = {
 
         "configurable":
         {
-
             "thread_id":
-            "refund001"
-
+            "refund-test-001"
         }
 
     }
@@ -93,7 +84,7 @@ async def test_human_review_interrupt():
         {
 
             "question":
-            "我要退款订单",
+            "我要退款，订单号是XN-001",
 
             "intent":
             "order",
@@ -119,11 +110,94 @@ async def test_human_review_interrupt():
         },
 
         config=config,
-
     )
 
 
     assert (
         "__interrupt__"
         in result
+    )
+
+
+@pytest.mark.asyncio
+async def test_human_review_resume():
+
+
+    graph = await create_customer_graph(
+
+        FakeOrderAgent(),
+
+        FakeRagAgent(),
+
+    )
+
+    os.environ[
+        "REDIS_URL"
+    ] = "redis://localhost:6379/0"
+
+
+    config = {
+
+        "configurable":
+        {
+            "thread_id":
+            "refund-test-002"
+        }
+
+    }
+
+
+    # 第一次暂停
+
+    await graph.ainvoke(
+
+        {
+
+            "question":
+            "我要退款",
+
+            "intent":
+            "order",
+
+            "answer":
+            None,
+
+            "tenant_id":
+            "tenant001",
+
+            "user_id":
+            "user001",
+
+            "trace_id":
+            "trace001",
+
+            "need_human_review":
+            False,
+
+            "human_action":
+            None,
+
+        },
+
+        config=config,
+    )
+
+
+    # 人工审批继续
+
+    result = await graph.ainvoke(
+
+        Command(
+            resume="approve"
+        ),
+
+        config=config,
+
+    )
+
+
+    assert (
+        result["human_action"]
+        ==
+        "approve"
     )
