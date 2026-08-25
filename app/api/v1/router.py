@@ -19,8 +19,7 @@ from app.api.v1.endpoints.conversation import (
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.performance import router as performance_router
 from app.api.v1.endpoints.orders import router as orders_router
-
-
+from app.api.v1.endpoints import ai
 api_router = APIRouter()
 
 
@@ -62,3 +61,11 @@ api_router.include_router(
 api_router.include_router(auth_router, tags=["Authentication"])
 api_router.include_router(performance_router)
 api_router.include_router(orders_router)
+
+# 将 ai.router 包含到 api_router，而不是 ai.router 自己
+api_router.include_router(
+    ai.router,
+    prefix="/ai",
+    tags=["AI"]
+)
+
