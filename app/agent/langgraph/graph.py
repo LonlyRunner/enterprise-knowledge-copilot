@@ -12,13 +12,34 @@ from app.agent.langgraph.state import (
 
 from app.agent.langgraph.nodes import (
     intent_router,
-    order_node,
-    knowledge_node,
+)
+
+
+from app.agent.langgraph.agents import (
+    OrderAgentNode,
+    RagAgentNode,
 )
 
 
 
-def create_customer_graph():
+def create_customer_graph(
+    order_agent,
+    rag_agent,
+):
+
+
+    order_agent_node = (
+        OrderAgentNode(
+            order_agent
+        )
+    )
+
+
+    rag_agent_node = (
+        RagAgentNode(
+            rag_agent
+        )
+    )
 
 
     graph = StateGraph(
@@ -34,13 +55,13 @@ def create_customer_graph():
 
     graph.add_node(
         "order",
-        order_node,
+        order_agent_node.run,
     )
 
 
     graph.add_node(
         "knowledge",
-        knowledge_node,
+        rag_agent_node.run,
     )
 
 

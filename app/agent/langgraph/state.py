@@ -7,8 +7,13 @@ class AgentState(
 
     question: str
 
-
     intent: str | None
 
-
     answer: str | None
+
+
+    tenant_id: str
+
+    user_id: str
+
+    trace_id: str

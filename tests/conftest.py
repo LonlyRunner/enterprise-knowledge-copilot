@@ -45,3 +45,28 @@ def rag_service():
 @pytest.fixture
 def conversation():
     return SimpleNamespace(id=uuid4(), knowledge_base_id=uuid4())
+
+
+@pytest.fixture
+def agent_state():
+
+    return {
+
+        "tenant_id":
+        "test-tenant",
+
+        "user_id":
+        "test-user",
+
+        "trace_id":
+        "test-trace",
+
+        "question":
+        "",
+
+        "intent":
+        None,
+
+        "answer":
+        None,
+    }
