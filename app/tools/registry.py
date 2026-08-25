@@ -7,6 +7,18 @@ from app.tools.base import (
 )
 
 
+from app.tools.logistics import (
+    QueryLogisticsTool,
+)
+
+from app.tools.rag import (
+    KnowledgeSearchTool,
+)
+
+from app.tools.ticket import (
+    CreateTicketTool,
+)
+
 
 def create_tool_registry(
     gateway,
@@ -19,6 +31,14 @@ def create_tool_registry(
         QueryOrderTool(
             gateway
         )
+    )
+
+    registry.register(
+        QueryLogisticsTool(gateway)
+    )
+
+    registry.register(
+        CreateTicketTool()
     )
 
 

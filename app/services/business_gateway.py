@@ -68,3 +68,42 @@ class MockBusinessGateway:
             "success": True,
             "data": order,
         }
+
+    async def query_logistics(
+            self,
+            order_id: str,
+            *,
+            tenant_id: str,
+            user_id: str,
+    ):
+
+        logistics = {
+
+            "XN-2026-000381": {
+
+                "status":
+                    "运输中",
+
+                "location":
+                    "上海转运中心",
+
+                "eta":
+                    "2026-08-28",
+            }
+        }
+
+        result = logistics.get(
+            order_id
+        )
+
+        if result is None:
+            return {
+                "success": False,
+                "error_code":
+                    "LOGISTICS_NOT_FOUND",
+            }
+
+        return {
+            "success": True,
+            "data": result,
+        }

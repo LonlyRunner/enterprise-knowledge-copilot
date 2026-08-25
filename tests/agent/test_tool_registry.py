@@ -39,10 +39,17 @@ def test_registry_generate_schema():
     schemas = registry.schemas()
 
 
-    assert len(schemas) == 1
+    assert len(schemas) == 3
 
 
-    assert (
-        schemas[0]["function"]["name"]
-        == "query_order"
-    )
+    tool_names = [
+        schema["function"]["name"]
+        for schema in schemas
+    ]
+
+
+    assert "query_order" in tool_names
+
+    assert "query_logistics" in tool_names
+
+    assert "create_ticket" in tool_names
