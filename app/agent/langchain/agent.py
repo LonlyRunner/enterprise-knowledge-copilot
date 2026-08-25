@@ -1,18 +1,16 @@
 from langchain.agents import create_agent
 
 
+
 def create_langchain_agent(
     llm,
     tools,
 ):
     """
-    LangChain 1.x Agent
-
-    基于 create_agent
+    LangChain 1.x 基础Agent
     """
 
-
-    agent = create_agent(
+    return create_agent(
 
         model=llm,
 
@@ -25,4 +23,19 @@ def create_langchain_agent(
     )
 
 
-    return agent
+
+def create_conversation_agent(
+    llm,
+    tools,
+):
+    """
+    带Conversation能力的Agent
+
+    当前只是基础包装，
+    Memory由ConversationAgent处理。
+    """
+
+    return create_langchain_agent(
+        llm,
+        tools,
+    )
