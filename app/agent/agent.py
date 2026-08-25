@@ -1,28 +1,48 @@
 import json
 
+from app.llm.base import (
+    BaseLLMClient,
+)
+
+from app.tools.executor import (
+    DefaultToolExecutor,
+)
+
+from app.tools.base import (
+    ToolRegistry,
+)
 
 class NativeAgent:
+    """
+    原生 Tool Calling Agent
 
+    不依赖 LangChain
+    """
 
     def __init__(
         self,
-        llm,
-        executor,
-        registry,
-        max_steps=5,
+        llm: BaseLLMClient,
+        executor: DefaultToolExecutor,
+        registry: ToolRegistry,
+        max_steps: int = 5,
     ):
+
         self.llm = llm
+
         self.executor = executor
+
         self.registry = registry
+
         self.max_steps = max_steps
 
+
     async def run(
-            self,
-            question,
-            *,
-            tenant_id,
-            user_id,
-            trace_id,
+        self,
+        question: str,
+        *,
+        tenant_id: str,
+        user_id: str,
+        trace_id: str,
     ):
 
         messages = [
@@ -32,8 +52,9 @@ class NativeAgent:
             }
         ]
 
+
         for step in range(
-                self.max_steps
+            self.max_steps
         ):
 
             response = await self.llm.chat_with_tools(
@@ -41,29 +62,39 @@ class NativeAgent:
                 self.registry.schemas(),
             )
 
+
             messages.append(
                 {
                     "role":
-                        "assistant",
+                    response.role,
 
                     "content":
-                        response.content,
+                    response.content,
 
                 }
             )
 
+
+            # 没有工具调用
+            # 直接结束
+
             if not response.tool_calls:
+
                 return {
                     "answer":
-                        response.content,
+                    response.content,
 
                     "steps":
-                        step + 1,
+                    step + 1,
                 }
 
-            for call in response.tool_calls:
-                result = await self.executor.execute(
 
+            # 执行工具
+
+            for call in response.tool_calls:
+
+
+                result = await self.executor.execute(
                     call.name,
 
                     call.arguments,
@@ -73,39 +104,35 @@ class NativeAgent:
                     user_id=user_id,
 
                     trace_id=trace_id,
-
                 )
+
 
                 messages.append(
-
                     {
-
                         "role":
-                            "tool",
+                        "tool",
 
                         "tool_call_id":
-                            call.id,
+                        call.id,
 
                         "name":
-                            call.name,
+                        call.name,
 
                         "content":
-                            json.dumps(
-                                result,
-                                ensure_ascii=False,
-                            ),
-
+                        json.dumps(
+                            result,
+                            ensure_ascii=False,
+                        ),
                     }
-
                 )
 
-        return {
 
+        return {
             "answer":
-                "执行超过最大步骤",
+            "超过最大执行步骤",
 
             "steps":
-                self.max_steps,
+            self.max_steps,
 
         }
 

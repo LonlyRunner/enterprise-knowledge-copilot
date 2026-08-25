@@ -36,6 +36,8 @@ class FakeToolCall:
 @dataclass
 class FakeLLMResponse:
 
+    role: str = "assistant"
+
     content: str | None = None
 
     tool_calls: list | None = None
