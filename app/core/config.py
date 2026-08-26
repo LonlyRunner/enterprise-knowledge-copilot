@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "enterprise-knowledge-copilot"
     app_version: str = "0.1.0"
+    environment: str = "development"
     debug: bool = False
     database_url: str = "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/enterprise_rag"
     db_echo: bool = False
@@ -33,6 +34,7 @@ class Settings(BaseSettings):
     embedding_batch_size: int = 32
     embedding_max_concurrency: int = 2
     diagnostics_enabled: bool = True
+    metrics_auth_token: str = ""
     gateway_rate_limit_per_minute: int = 60
     gateway_audit_ttl_seconds: int = 604800
     gateway_default_mode: str = "auto"
@@ -56,13 +58,27 @@ class Settings(BaseSettings):
     document_lock_ttl_seconds: int = 300
     # Empty is allowed for local imports/tests, but authentication must reject it.
     jwt_secret: str = ""
-    auth_enabled: bool = False
+    # Authentication is fail-closed by default. Local demo callers can opt out
+    # explicitly with AUTH_ENABLED=false in a development .env file.
+    auth_enabled: bool = True
     access_token_expire_minutes: int = 120
     default_tenant_id: str = "default"
     vector_store_backend: str = "postgres"
     milvus_uri: str = "http://127.0.0.1:19530"
     milvus_collection: str = "enterprise_document_chunks"
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
+
+    def validate_runtime(self) -> None:
+        """Reject unsafe production settings before serving requests."""
+        if self.environment.lower() == "production":
+            if not self.auth_enabled:
+                raise ValueError("AUTH_ENABLED must be true in production")
+            if len(self.jwt_secret) < 32:
+                raise ValueError("JWT_SECRET must contain at least 32 characters in production")
+            if self.mcp_external_enabled and len(self.mcp_auth_token) < 32:
+                raise ValueError("MCP_AUTH_TOKEN must contain at least 32 characters when MCP is exposed")
+            if len(self.metrics_auth_token) < 32:
+                raise ValueError("METRICS_AUTH_TOKEN must contain at least 32 characters in production")
 
 @lru_cache
 def get_settings() -> Settings:

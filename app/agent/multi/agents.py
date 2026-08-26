@@ -1,6 +1,9 @@
 from app.core.observability.tracer import (
     AgentTracer,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -73,9 +76,7 @@ class TicketAgent:
     ):
 
 
-        print(
-            "Ticket Agent running"
-        )
+        logger.info("ticket_agent_running")
 
 
         state["answer"] = (

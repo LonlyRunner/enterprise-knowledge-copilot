@@ -45,6 +45,7 @@ async def index_document(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("knowledge:write")),
 ):
 
     rag_service = RagService(
@@ -56,8 +57,9 @@ async def index_document(
         response = await rag_service.index_document(
             knowledge_base_id=request.knowledge_base_id,
             file_path=request.file_path,
+            tenant_id=user.tenant_id,
         )
-        await cache.invalidate_knowledge_base(str(request.knowledge_base_id))
+        await cache.invalidate_knowledge_base(str(request.knowledge_base_id), tenant_id=user.tenant_id)
         return response
     finally:
         await cache.close()
@@ -83,7 +85,10 @@ async def query_rag(
 
     cache = SemanticCache()
     try:
-        cached = await cache.get(str(request.knowledge_base_id), request.question, request.top_k)
+        # The knowledge-base ownership check happens inside RagService before
+        # this cache lookup, preventing cached cross-tenant responses.
+        await rag_service.ensure_knowledge_base_access(request.knowledge_base_id, user.tenant_id)
+        cached = await cache.get(str(request.knowledge_base_id), request.question, request.top_k, tenant_id=user.tenant_id)
         if cached is not None:
             return cached
         response = await rag_service.query(
@@ -93,7 +98,7 @@ async def query_rag(
             tenant_id=user.tenant_id,
         )
         payload = response.model_dump(mode="json")
-        await cache.set(str(request.knowledge_base_id), request.question, request.top_k, payload)
+        await cache.set(str(request.knowledge_base_id), request.question, request.top_k, payload, tenant_id=user.tenant_id)
         return payload
     finally:
         await cache.close()
@@ -109,6 +114,7 @@ async def evaluate_retrieval(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("evaluation:run")),
 ):
 
     rag_service = RagService(
@@ -163,6 +169,7 @@ async def run_rag_experiments(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("evaluation:run")),
 ):
 
     rag_service = RagService(
@@ -219,6 +226,7 @@ async def hybrid_retrieval_debug(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("rag:debug")),
 ):
 
     rag_service = RagService(
@@ -245,6 +253,7 @@ async def evaluate_hybrid(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("evaluation:run")),
 ):
 
     rag_service = RagService(
@@ -273,6 +282,7 @@ async def rerank_debug(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("rag:debug")),
 ):
 
     rag_service = RagService(
@@ -312,6 +322,7 @@ async def rag_chat(
             conversation_id=request.conversation_id,
             question=request.question,
             top_k=request.top_k,
+            tenant_id=user.tenant_id,
         )
     finally:
         await rag_service.close()
@@ -326,6 +337,7 @@ async def vector_retrieval_debug(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("rag:debug")),
 ):
 
     rag_service = RagService(

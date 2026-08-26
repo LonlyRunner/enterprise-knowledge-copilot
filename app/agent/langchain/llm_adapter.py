@@ -20,6 +20,9 @@ from langchain_core.tools import BaseTool
 from langchain_core.messages import (
     ToolMessage,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DeepSeekChatAdapter(
@@ -47,9 +50,7 @@ class DeepSeekChatAdapter(
             **kwargs,
     ):
 
-        print(
-            "DeepSeekChatAdapter._generate called"
-        )
+        logger.debug("deepseek_langchain_generate")
 
         import asyncio
 

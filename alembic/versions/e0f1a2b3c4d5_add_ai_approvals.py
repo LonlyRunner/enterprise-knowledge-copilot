@@ -27,10 +27,18 @@ def upgrade() -> None:
     op.create_index("ix_ai_approvals_tenant_id", "ai_approvals", ["tenant_id"])
     op.create_index("ix_ai_approvals_user_id", "ai_approvals", ["user_id"])
     op.create_index("ix_ai_approvals_idempotency_key", "ai_approvals", ["idempotency_key"])
+    op.create_index(
+        "uq_ai_approval_idempotency",
+        "ai_approvals",
+        ["tenant_id", "user_id", "idempotency_key"],
+        unique=True,
+        postgresql_where=sa.text("idempotency_key IS NOT NULL"),
+    )
 
 
 def downgrade() -> None:
     op.drop_index("ix_ai_approvals_idempotency_key", table_name="ai_approvals")
+    op.drop_index("uq_ai_approval_idempotency", table_name="ai_approvals")
     op.drop_index("ix_ai_approvals_user_id", table_name="ai_approvals")
     op.drop_index("ix_ai_approvals_tenant_id", table_name="ai_approvals")
     op.drop_table("ai_approvals")

@@ -1,6 +1,9 @@
 from langgraph.checkpoint.redis import (
     AsyncRedisSaver,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CheckpointerManager:
@@ -44,9 +47,7 @@ class CheckpointerManager:
             )
 
 
-            print(
-                "Async Redis Checkpointer initialized"
-            )
+            logger.info("langgraph_checkpointer_initialized")
 
 
         return self.checkpointer

@@ -1,3 +1,8 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class ToolCallLogger:
 
 
@@ -9,18 +14,12 @@ class ToolCallLogger:
     ):
 
 
-        print(
-
-            {
-                "tool":
-                tool_name,
-
-                "args":
-                args,
-
-                "result":
-                result,
-
-            }
-
+        # Do not log raw arguments/results: they may contain customer or order PII.
+        logger.info(
+            "tool_call",
+            extra={
+                "tool": tool_name,
+                "argument_keys": sorted(args.keys()) if isinstance(args, dict) else [],
+                "result_type": type(result).__name__,
+            },
         )

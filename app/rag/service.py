@@ -5,10 +5,10 @@ from app.utils.timer import Timer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.llm.client import (
-    create_llm_client,
+    get_shared_llm_client,
 )
 from app.rag.embedding import (
-    EmbeddingClient,
+    get_shared_embedding_client,
 )
 from app.rag.loaders.factory import (
     create_document_loader,
@@ -56,6 +56,7 @@ from app.repositories.conversation import (
 from app.repositories.message import (
     MessageRepository,
 )
+from app.repositories.knowledge_base import KnowledgeBaseRepository
 
 from app.rag.context import (
     ConversationSummarizer,
@@ -69,6 +70,7 @@ from app.utils.trace import (
     get_trace_id,
 )
 from app.core.config import get_settings
+from app.core.exceptions import AppException
 
 
 logger = logging.getLogger(
@@ -87,9 +89,7 @@ class RagService:
 
         self.last_retrieval_latency = 0
 
-        self.llm_client = (
-            create_llm_client()
-        )
+        self.llm_client = get_shared_llm_client()
 
         self.chat_context_service = (
             ChatContextService(
@@ -105,9 +105,7 @@ class RagService:
             )
         )
 
-        self.embedding_client = (
-            EmbeddingClient()
-        )
+        self.embedding_client = get_shared_embedding_client()
 
 
         self.document_repository = (
@@ -115,6 +113,8 @@ class RagService:
                 session
             )
         )
+
+        self.knowledge_base_repository = KnowledgeBaseRepository(session)
 
         self.chunk_repository = (
             DocumentChunkRepository(
@@ -173,20 +173,21 @@ class RagService:
             )
         )
 
+    async def ensure_knowledge_base_access(self, knowledge_base_id: uuid.UUID, tenant_id: str) -> None:
+        """Validate ownership before any cache or retrieval operation."""
+        if await self.knowledge_base_repository.get_by_id(knowledge_base_id, tenant_id=tenant_id) is None:
+            raise AppException("Knowledge base not found", code="KNOWLEDGE_BASE_NOT_FOUND", status_code=404)
+
     async def close(self) -> None:
-        """Release per-request outbound clients on all endpoint paths."""
-        close = getattr(self.embedding_client, "close", None)
-        if close:
-            await close()
-        close = getattr(self.llm_client, "close", None)
-        if close:
-            await close()
+        """Shared provider pools are closed by the application lifespan."""
+        return None
 
     async def index_document(
         self,
         *,
         knowledge_base_id: uuid.UUID,
         file_path: str,
+        tenant_id: str | None = None,
     ) -> RagIndexResponse:
 
         path = self._resolve_document_path(file_path)
@@ -197,9 +198,11 @@ class RagService:
             )
         )
 
+        tenant_id = tenant_id or self.settings.default_tenant_id
+        await self.ensure_knowledge_base_access(knowledge_base_id, tenant_id)
         document = loader.load(
             file_path,
-            tenant_id=self.settings.default_tenant_id,
+            tenant_id=tenant_id,
         )
 
         chunks = (
@@ -239,6 +242,7 @@ class RagService:
                         path
                     ),
                     status="processing",
+                    tenant_id=tenant_id,
                 )
             )
 
@@ -283,7 +287,7 @@ class RagService:
             if self.settings.vector_store_backend.lower() == "milvus":
                 await self.vector_repository.insert(
                     knowledge_base_id=knowledge_base_id,
-                    tenant_id=self.settings.default_tenant_id,
+                    tenant_id=tenant_id,
                     chunks=[
                         {
                             "id": model.id,
@@ -838,6 +842,7 @@ class RagService:
             conversation_id: uuid.UUID,
             question: str,
             top_k: int = 3,
+            tenant_id: str | None = None,
     ):
 
         return await self._chat_v2(
@@ -845,6 +850,7 @@ class RagService:
             conversation_id=conversation_id,
             question=question,
             top_k=top_k,
+            tenant_id=tenant_id,
         )
 
     async def chat_stream(
@@ -854,8 +860,11 @@ class RagService:
         conversation_id: uuid.UUID,
         question: str,
         top_k: int = 3,
+        tenant_id: str | None = None,
     ):
         """Stream the LLM answer while reusing the full RAG preparation path."""
+        tenant_id = tenant_id or self.settings.default_tenant_id
+        await self.ensure_knowledge_base_access(knowledge_base_id, tenant_id)
         conversation = await self.conversation_repository.get_by_id_and_knowledge_base(
             conversation_id=conversation_id, knowledge_base_id=knowledge_base_id
         )
@@ -881,6 +890,7 @@ class RagService:
             question=rewritten_question,
             top_k=top_k,
             candidate_k=max(top_k * 3, 10),
+            tenant_id=tenant_id,
         )
         rag_candidates = [
             DocumentChunk(
@@ -939,7 +949,11 @@ class RagService:
             conversation_id,
             question,
             top_k,
+            tenant_id=None,
     ):
+
+        tenant_id = tenant_id or self.settings.default_tenant_id
+        await self.ensure_knowledge_base_access(knowledge_base_id, tenant_id)
 
         #
         # 1. 验证 Conversation

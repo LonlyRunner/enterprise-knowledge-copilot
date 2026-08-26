@@ -1,6 +1,7 @@
 """OpenAI-compatible embedding client with bounded batching and retries."""
 import asyncio
 import httpx
+from functools import lru_cache
 
 from app.core.config import get_settings
 from app.core.exceptions import LLMRateLimitException, LLMServiceException, LLMTimeoutException
@@ -89,3 +90,15 @@ class EmbeddingClient:
 
     async def close(self) -> None:
         await self.client.aclose()
+
+
+@lru_cache(maxsize=1)
+def get_shared_embedding_client() -> EmbeddingClient:
+    """Reuse the embedding HTTP connection pool for the process lifetime."""
+    return EmbeddingClient()
+
+
+async def close_shared_embedding_client() -> None:
+    if get_shared_embedding_client.cache_info().currsize:
+        await get_shared_embedding_client().close()
+        get_shared_embedding_client.cache_clear()

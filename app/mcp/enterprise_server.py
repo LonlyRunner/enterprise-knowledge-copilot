@@ -76,6 +76,8 @@ async def customer_service_agent_prompt():
 
 
 if __name__ == "__main__":
+    if settings.environment.lower() == "production" and not settings.mcp_auth_token:
+        raise RuntimeError("MCP_AUTH_TOKEN must be configured in production")
     app = mcp.streamable_http_app()
     if settings.mcp_auth_token:
         class StaticTokenMiddleware(BaseHTTPMiddleware):

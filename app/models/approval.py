@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, JSON, String, func
+from sqlalchemy import DateTime, JSON, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -9,6 +9,9 @@ from app.db.base import Base
 
 class ApprovalModel(Base):
     __tablename__ = "ai_approvals"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "idempotency_key", name="uq_ai_approval_idempotency"),
+    )
 
     approval_id: Mapped[str] = mapped_column(String(80), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

@@ -1,5 +1,8 @@
 import time
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AgentTracer:
@@ -28,11 +31,7 @@ class AgentTracer:
         )
 
 
-        print(
-            f"[TRACE START]"
-            f"{name}"
-            f" trace={self.trace_id}"
-        )
+        logger.info("agent_trace_start", extra={"agent": name, "trace_id": self.trace_id})
 
 
 
@@ -48,8 +47,4 @@ class AgentTracer:
         )
 
 
-        print(
-            f"[TRACE END]"
-            f"{name}"
-            f" cost={cost:.3f}s"
-        )
+        logger.info("agent_trace_end", extra={"agent": name, "trace_id": self.trace_id, "latency_ms": round(cost * 1000, 2)})

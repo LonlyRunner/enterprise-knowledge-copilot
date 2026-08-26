@@ -1,6 +1,9 @@
 from app.agent.multi.state import (
     MultiAgentState,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -14,11 +17,7 @@ async def supervisor_node(
     )
 
 
-    print(
-        "Supervisor route:",
-        result.agent,
-        result.reason,
-    )
+    logger.info("supervisor_route", extra={"agent": result.agent, "reason": result.reason})
 
 
     state["next_agent"] = result.agent

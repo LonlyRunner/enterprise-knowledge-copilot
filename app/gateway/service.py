@@ -75,6 +75,7 @@ class AIGatewayService:
         )
 
         llm = None
+        executable_approval_ids: list[str] = []
         try:
             selected_model = request.model or self.settings.gateway_default_model
             if selected_model not in {self.settings.deepseek_model, "project-c-router"}:
@@ -87,6 +88,8 @@ class AIGatewayService:
                 if approval_ids:
                     try:
                         await ApprovalService(session).approve_many(approval_ids, tenant_id=tenant_id, user_id=user_id)
+                        await ApprovalService(session).claim_many(approval_ids, tenant_id=tenant_id, user_id=user_id)
+                        executable_approval_ids = approval_ids
                     except ValueError as exc:
                         raise AppException(str(exc), code="APPROVAL_INVALID", status_code=403) from exc
                 else:
@@ -121,6 +124,14 @@ class AIGatewayService:
                             idempotency_key=request.metadata.get("idempotency_key"),
                         )
                 await session.commit()
+            if session is not None and executable_approval_ids:
+                await ApprovalService(session).finalize_many(
+                    executable_approval_ids,
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    success=result.status == "completed",
+                )
+                await session.commit()
             result.route = mode
             GATEWAY_REQUESTS.labels(mode, result.status).inc()
             await self.audit.write(
@@ -140,9 +151,15 @@ class AIGatewayService:
             )
             return result
         except AppException:
+            if session is not None and executable_approval_ids:
+                await ApprovalService(session).finalize_many(executable_approval_ids, tenant_id=tenant_id, user_id=user_id, success=False)
+                await session.commit()
             GATEWAY_REQUESTS.labels(mode, "failed").inc()
             raise
         except Exception as exc:
+            if session is not None and executable_approval_ids:
+                await ApprovalService(session).finalize_many(executable_approval_ids, tenant_id=tenant_id, user_id=user_id, success=False)
+                await session.commit()
             GATEWAY_REQUESTS.labels(mode, "failed").inc()
             await self.audit.write(
                 "gateway.request.failed",

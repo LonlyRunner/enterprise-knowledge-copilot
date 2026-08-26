@@ -1,7 +1,8 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,7 @@ from app.utils.sse import encode_sse
 
 router = APIRouter(prefix="/ai", tags=["AI Gateway"])
 service = AIGatewayService()
+logger = logging.getLogger(__name__)
 
 
 def _context(user: User) -> tuple[str, str]:
@@ -68,15 +70,20 @@ async def ai_stream(
     request: GatewayRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    http_request: Request = None,
 ):
     async def events() -> AsyncIterator[str]:
         yield encode_sse("start", {})
         queue: asyncio.Queue[str] = asyncio.Queue()
         async def on_delta(delta: str) -> None:
             await queue.put(delta)
+        task = None
         try:
             task = asyncio.create_task(_run(request, db, user, delta_callback=on_delta))
             while not task.done() or not queue.empty():
+                if http_request is not None and await http_request.is_disconnected():
+                    task.cancel()
+                    return
                 try:
                     delta = await asyncio.wait_for(queue.get(), timeout=0.25)
                     yield encode_sse("delta", {"content": delta})
@@ -87,8 +94,18 @@ async def ai_stream(
                 yield encode_sse("step", step.model_dump(mode="json"))
             yield encode_sse("result", result.model_dump(mode="json"))
             yield encode_sse("done", {})
-        except Exception as exc:
-            yield encode_sse("error", {"message": str(exc)})
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("AI stream failed")
+            yield encode_sse("error", {"message": "AI request failed", "code": "AI_STREAM_ERROR"})
+        finally:
+            if task is not None and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
     return StreamingResponse(
         events(),
         media_type="text/event-stream",

@@ -1,11 +1,12 @@
 services:
   postgres:
+    restart: unless-stopped
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: enterprise_rag
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: [postgres_data:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d enterprise_rag"]
@@ -13,12 +14,14 @@ services:
       timeout: 5s
       retries: 10
   redis:
+    restart: unless-stopped
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
     volumes: [redis_data:/data]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
   api:
+    restart: unless-stopped
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports: ["8000:8000"]
@@ -43,6 +46,7 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
   worker:
+    restart: unless-stopped
     build: .
     command: celery -A app.worker.celery_app:celery_app worker --loglevel=INFO -Q document_index
     env_file: [.env]
@@ -58,6 +62,7 @@ services:
       redis: {condition: service_healthy}
       migrate: {condition: service_completed_successfully}
   mcp:
+    restart: unless-stopped
     build: .
     command: python -m app.mcp.enterprise_server
     ports: ["8001:8001"]
@@ -65,6 +70,7 @@ services:
     depends_on:
       redis: {condition: service_healthy}
   nginx:
+    restart: unless-stopped
     image: nginx:1.27-alpine
     ports: ["8080:80"]
     volumes:
@@ -72,6 +78,7 @@ services:
     depends_on:
       api: {condition: service_started}
   prometheus:
+    restart: unless-stopped
     image: prom/prometheus:v2.54.1
     ports: ["9090:9090"]
     volumes:
@@ -80,6 +87,7 @@ services:
     depends_on:
       api: {condition: service_started}
   grafana:
+    restart: unless-stopped
     image: grafana/grafana:11.2.0
     ports: ["3000:3000"]
     environment:

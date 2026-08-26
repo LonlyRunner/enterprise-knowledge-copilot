@@ -33,14 +33,14 @@ class SemanticCache:
         self.ttl_seconds = ttl_seconds
 
     @staticmethod
-    def make_key(knowledge_base_id: str, question: str, top_k: int) -> str:
+    def make_key(knowledge_base_id: str, question: str, top_k: int, tenant_id: str = "default") -> str:
         normalized = " ".join(question.strip().lower().split())
-        digest = hashlib.sha256(f"{knowledge_base_id}:{top_k}:{normalized}".encode()).hexdigest()
-        return f"rag:query:{knowledge_base_id}:{digest}"
+        digest = hashlib.sha256(f"{tenant_id}:{knowledge_base_id}:{top_k}:{normalized}".encode()).hexdigest()
+        return f"rag:query:{tenant_id}:{knowledge_base_id}:{digest}"
 
-    async def get(self, knowledge_base_id: str, question: str, top_k: int) -> dict[str, Any] | None:
+    async def get(self, knowledge_base_id: str, question: str, top_k: int, tenant_id: str = "default") -> dict[str, Any] | None:
         try:
-            value = await self.redis.get(self.make_key(knowledge_base_id, question, top_k))
+            value = await self.redis.get(self.make_key(knowledge_base_id, question, top_k, tenant_id))
         except Exception:
             logger.warning("semantic cache read failed", exc_info=True)
             return None
@@ -51,15 +51,15 @@ class SemanticCache:
         except json.JSONDecodeError:
             return None
 
-    async def set(self, knowledge_base_id: str, question: str, top_k: int, value: dict[str, Any]) -> None:
+    async def set(self, knowledge_base_id: str, question: str, top_k: int, value: dict[str, Any], tenant_id: str = "default") -> None:
         try:
-            await self.redis.set(self.make_key(knowledge_base_id, question, top_k), json.dumps(value, ensure_ascii=False), ex=self.ttl_seconds)
+            await self.redis.set(self.make_key(knowledge_base_id, question, top_k, tenant_id), json.dumps(value, ensure_ascii=False), ex=self.ttl_seconds)
         except Exception:
             logger.warning("semantic cache write failed", exc_info=True)
 
-    async def invalidate_knowledge_base(self, knowledge_base_id: str) -> None:
+    async def invalidate_knowledge_base(self, knowledge_base_id: str, tenant_id: str = "default") -> None:
         try:
-            keys = [key async for key in self.redis.scan_iter(match=f"rag:query:{knowledge_base_id}:*")]
+            keys = [key async for key in self.redis.scan_iter(match=f"rag:query:{tenant_id}:{knowledge_base_id}:*")]
             if keys:
                 await self.redis.delete(*keys)
         except Exception:

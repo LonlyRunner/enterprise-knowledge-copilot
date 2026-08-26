@@ -16,6 +16,8 @@ from app.db.session import engine
 from app.observability import setup_opentelemetry
 from app.cache.semantic import close_cache_redis
 from app.api.v1.endpoints.chat import close_llm_client
+from app.llm.client import close_shared_llm_client
+from app.rag.embedding import close_shared_embedding_client
 
 
 settings = get_settings()
@@ -34,12 +36,16 @@ async def lifespan(
 
     yield
 
+    await close_shared_embedding_client()
+    await close_shared_llm_client()
+
     await close_cache_redis()
     await close_llm_client()
     await engine.dispose()
 
 
 def create_app() -> FastAPI:
+    get_settings().validate_runtime()
 
     app = FastAPI(
         title=settings.app_name,
@@ -96,7 +102,10 @@ def create_app() -> FastAPI:
         return response
 
     @app.get("/metrics", include_in_schema=False)
-    async def metrics():
+    async def metrics(request: Request):
+        if settings.environment.lower() == "production":
+            if request.headers.get("authorization") != f"Bearer {settings.metrics_auth_token}":
+                return JSONResponse({"detail": "Metrics authorization required"}, status_code=401)
         from starlette.responses import Response
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
