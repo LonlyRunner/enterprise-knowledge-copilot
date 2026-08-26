@@ -8,12 +8,17 @@ ROLE_PERMISSION={
 
     "manager":[
         "chat:use",
-        "knowledge:read"
+        "knowledge:read",
+        "knowledge:write",
+        "order:read",
+        "order:write",
     ],
 
 
     "employee":[
-        "chat:use"
+        "chat:use",
+        "knowledge:read",
+        "order:read",
     ]
 
 }

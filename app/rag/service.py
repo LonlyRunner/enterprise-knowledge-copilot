@@ -418,12 +418,13 @@ class RagService:
     async def _rebuild_bm25(
         self,
         knowledge_base_id: uuid.UUID,
+        tenant_id: str | None = None,
     ) -> None:
 
         rows = (
             await self.chunk_repository
             .list_by_knowledge_base_for_retrieval(
-                tenant_id=self.settings.default_tenant_id,
+                tenant_id=tenant_id or self.settings.default_tenant_id,
                 knowledge_base_id=knowledge_base_id,
             )
         )
@@ -541,6 +542,7 @@ class RagService:
         knowledge_base_id: uuid.UUID,
         question: str,
         top_k: int = 3,
+        tenant_id: str | None = None,
     ) -> RagQueryResponse:
 
         retrieval_results = (
@@ -555,6 +557,7 @@ class RagService:
                     top_k * 3,
                     10,
                 ),
+                tenant_id=tenant_id,
             )
         )
 
@@ -613,6 +616,8 @@ class RagService:
                 chunk_index=item[
                     "chunk_index"
                 ],
+                chunk_id=str(item.get("chunk_id")) if item.get("chunk_id") else None,
+                document_id=str(item.get("document_id")) if item.get("document_id") else None,
             )
             for item
             in retrieval_results
@@ -632,10 +637,11 @@ class RagService:
         question: str,
         top_k: int = 5,
         candidate_k: int = 10,
+        tenant_id: str | None = None,
     ):
 
         await self._rebuild_bm25(
-            knowledge_base_id
+            knowledge_base_id, tenant_id
         )
 
         results = (
@@ -649,6 +655,7 @@ class RagService:
                 candidate_k=(
                     candidate_k
                 ),
+                tenant_id=tenant_id,
             )
         )
 
@@ -699,6 +706,7 @@ class RagService:
         question: str,
         top_k: int = 3,
         candidate_k: int = 10,
+        tenant_id: str | None = None,
     ):
 
         timer = Timer()
@@ -706,7 +714,7 @@ class RagService:
         timer.start()
 
         await self._rebuild_bm25(
-            knowledge_base_id
+            knowledge_base_id, tenant_id
         )
 
         hybrid_results = (
@@ -722,6 +730,7 @@ class RagService:
                 candidate_k=(
                     candidate_k
                 ),
+                tenant_id=tenant_id,
             )
         )
 
@@ -756,6 +765,7 @@ class RagService:
                     item.chunk.id
                 ),
                 "tenant_id": item.chunk.tenant_id,
+                "document_id": item.chunk.document_id,
                 "content": (
                     item.chunk.content
                 ),
@@ -913,7 +923,7 @@ class RagService:
             raise
 
         sources = [
-            RagSource(content=item["content"], score=item["rerank_score"], source=item["source"], chunk_index=item["chunk_index"])
+            RagSource(content=item["content"], score=item["rerank_score"], source=item["source"], chunk_index=item["chunk_index"], chunk_id=str(item.get("chunk_id")) if item.get("chunk_id") else None, document_id=str(item.get("document_id")) if item.get("document_id") else None)
             for item in retrieval_results
         ]
         yield {"event": "sources", "data": {"sources": [source.model_dump(mode="json") for source in sources]}}
@@ -1213,6 +1223,8 @@ class RagService:
                 chunk_index=item[
                     "chunk_index"
                 ],
+                chunk_id=str(item.get("chunk_id")) if item.get("chunk_id") else None,
+                document_id=str(item.get("document_id")) if item.get("document_id") else None,
             )
             for item
             in retrieval_results

@@ -1,4 +1,5 @@
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -23,7 +24,7 @@ def _context(user: User) -> tuple[str, str]:
     return user.tenant_id, user_id
 
 
-async def _run(request: GatewayRequest, db: AsyncSession, user: User) -> GatewayResponse:
+async def _run(request: GatewayRequest, db: AsyncSession, user: User, *, delta_callback: Callable[[str], Awaitable[None]] | None = None) -> GatewayResponse:
     tenant_id, user_id = _context(user)
     try:
         result = await service.handle(
@@ -31,6 +32,7 @@ async def _run(request: GatewayRequest, db: AsyncSession, user: User) -> Gateway
             session=db,
             tenant_id=tenant_id,
             user_id=user_id,
+            delta_callback=delta_callback,
         )
     except RateLimitExceeded as exc:
         raise HTTPException(
@@ -69,12 +71,20 @@ async def ai_stream(
 ):
     async def events() -> AsyncIterator[str]:
         yield encode_sse("start", {})
+        queue: asyncio.Queue[str] = asyncio.Queue()
+        async def on_delta(delta: str) -> None:
+            await queue.put(delta)
         try:
-            result = await _run(request, db, user)
+            task = asyncio.create_task(_run(request, db, user, delta_callback=on_delta))
+            while not task.done() or not queue.empty():
+                try:
+                    delta = await asyncio.wait_for(queue.get(), timeout=0.25)
+                    yield encode_sse("delta", {"content": delta})
+                except asyncio.TimeoutError:
+                    continue
+            result = await task
             for step in result.agent_steps:
                 yield encode_sse("step", step.model_dump(mode="json"))
-            for index in range(0, len(result.answer), 24):
-                yield encode_sse("delta", {"content": result.answer[index:index + 24]})
             yield encode_sse("result", result.model_dump(mode="json"))
             yield encode_sse("done", {})
         except Exception as exc:

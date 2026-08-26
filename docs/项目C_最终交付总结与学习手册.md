@@ -116,3 +116,37 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/ai/agent `
 - Supervisor 从关键词升级为可评估的意图分类器，保留规则兜底和人工审计。
 - 将报告工件存储到对象存储，返回下载地址与权限校验。
 - 为每次请求增加幂等键、用户级 Token 配额和敏感数据脱敏策略。
+
+本次生产化加固已提前落地：知识库增加租户归属、文档/会话/订单接口接入 RBAC、写操作审批持久化到 `ai_approvals`、Docker Compose 覆盖容器内服务地址、MCP Server 支持静态 Service Token。升级数据库后再启动 API：
+
+```powershell
+python -m alembic upgrade head
+```
+
+AI Gateway 的 SSE 已支持通过 `ChatAgent.stream()` 发送真实增量；当未配置模型时仍以确定性分片保持联调可用。RAG 查询、Hybrid Vector/BM25 检索和 Citation 现在携带租户及稳定 `chunk_id`，便于权限审计和 C5 评测。
+
+## 8. 生产注意事项
+
+不要在生产环境使用仓库根目录 `.env` 的本机地址；Compose 已为 API、Worker 和迁移任务覆盖为 `postgres`/`redis` 服务名。生产应设置 `AUTH_ENABLED=true`、非默认 `JWT_SECRET` 和 `MCP_AUTH_TOKEN`，并通过网关限制 MCP 的网络来源。
+
+## 7. C5 Evaluation 评测闭环
+
+C5 评测代码位于 `app/evaluation/`，统一 Runner 会对同一批 Golden Cases 计算 Agent、Retrieval、Generation 三组指标，并输出逐案例结果、缓存命中数和质量门禁结论。
+
+```powershell
+# 离线回放（适合开发和 CI）
+python -m app.evaluation.cli run `
+  --dataset data/evaluation/c5_cases.json `
+  --results data/evaluation/c5_results.json `
+  --gate data/evaluation/quality_gate.json
+
+# 对运行中的 Gateway 做真实 HTTP 评测
+python -m app.evaluation.cli run `
+  --dataset data/evaluation/c5_cases.json `
+  --base-url http://127.0.0.1:8000/api/v1 `
+  --no-cache
+```
+
+缓存位于 `storage/evaluation/cache/`，按案例输入、Runner 版本和执行器版本生成 SHA-256 Key；修改数据或执行器版本会自动失效。需要强制重跑时使用 `--no-cache --clear-cache`。
+
+`data/evaluation/quality_gate.json` 是 CI 的唯一门禁配置。任一已启用指标低于阈值，CLI 返回退出码 2，GitHub Actions 会阻止流水线通过并上传 Markdown 报告 artifact。覆盖的指标包括：路由、Tool Selection、Tool Arguments、Hit Rate、Recall@K、MRR、Keyword、Citation、Groundedness、Relevance。

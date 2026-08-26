@@ -16,7 +16,8 @@ class BusinessGateway(Protocol):
 class MockBusinessGateway:
     """File-backed mock implementation that mirrors a real order service."""
 
-    def __init__(self, data_path: str | Path | None = None):
+    def __init__(self, data_path: str | Path | None = None, *, enforce_identity: bool = False):
+        self.enforce_identity = enforce_identity
         path = Path(data_path) if data_path else Path(__file__).resolve().parents[2] / "data" / "order_mock_data.json"
         try:
             records = json.loads(path.read_text(encoding="utf-8"))
@@ -56,13 +57,13 @@ class MockBusinessGateway:
 
     async def query_order(self, order_id: str, *, tenant_id: str, user_id: str) -> dict:
         order = self.orders.get(order_id)
-        if order is None:
+        if order is None or (self.enforce_identity and not self._visible(order, tenant_id=tenant_id, user_id=user_id)):
             return {"success": False, "error_code": "ORDER_NOT_FOUND"}
         return {"success": True, "data": copy.deepcopy(order)}
 
     async def query_logistics(self, order_id: str, *, tenant_id: str, user_id: str) -> dict:
         order = self.orders.get(order_id)
-        if order is None:
+        if order is None or (self.enforce_identity and not self._visible(order, tenant_id=tenant_id, user_id=user_id)):
             return {"success": False, "error_code": "LOGISTICS_NOT_FOUND"}
         return {
             "success": True,
@@ -77,7 +78,7 @@ class MockBusinessGateway:
         }
 
     async def create_ticket(self, order_id: str, reason: str, *, tenant_id: str, user_id: str) -> dict:
-        if order_id not in self.orders:
+        if order_id not in self.orders or (self.enforce_identity and not self._visible(self.orders[order_id], tenant_id=tenant_id, user_id=user_id)):
             return {"success": False, "error_code": "ORDER_NOT_FOUND"}
         ticket = {
             "ticket_id": f"TK-{uuid.uuid4().hex[:10].upper()}",
@@ -90,3 +91,10 @@ class MockBusinessGateway:
         }
         self.tickets.append(ticket)
         return {"success": True, "data": copy.deepcopy(ticket)}
+
+    @staticmethod
+    def _visible(order: dict, *, tenant_id: str, user_id: str) -> bool:
+        return order.get("tenant_id") == tenant_id and (
+            order.get("user_id") == user_id
+            or (user_id == "default" and order.get("user_id") == "demo-user")
+        )

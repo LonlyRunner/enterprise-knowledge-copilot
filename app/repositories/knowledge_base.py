@@ -21,11 +21,13 @@ class KnowledgeBaseRepository:
         *,
         name: str,
         description: str | None = None,
+        tenant_id: str = "default",
     ) -> KnowledgeBaseModel:
 
         model = KnowledgeBaseModel(
             name=name,
             description=description,
+            tenant_id=tenant_id,
         )
 
         self.session.add(model)
@@ -37,15 +39,15 @@ class KnowledgeBaseRepository:
     async def get_by_id(
         self,
         knowledge_base_id: uuid.UUID,
+        tenant_id: str | None = None,
     ) -> KnowledgeBaseModel | None:
 
         statement = (
             select(KnowledgeBaseModel)
-            .where(
-                KnowledgeBaseModel.id
-                == knowledge_base_id
-            )
+            .where(KnowledgeBaseModel.id == knowledge_base_id)
         )
+        if tenant_id is not None:
+            statement = statement.where(KnowledgeBaseModel.tenant_id == tenant_id)
 
         result = await self.session.execute(
             statement
@@ -55,14 +57,13 @@ class KnowledgeBaseRepository:
 
     async def list_all(
         self,
+        tenant_id: str | None = None,
     ) -> list[KnowledgeBaseModel]:
 
-        statement = (
-            select(KnowledgeBaseModel)
-            .order_by(
-                KnowledgeBaseModel.created_at.desc()
-            )
-        )
+        statement = select(KnowledgeBaseModel)
+        if tenant_id is not None:
+            statement = statement.where(KnowledgeBaseModel.tenant_id == tenant_id)
+        statement = statement.order_by(KnowledgeBaseModel.created_at.desc())
 
         result = await self.session.execute(
             statement

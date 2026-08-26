@@ -24,6 +24,11 @@ jobs:
   - uses:
       actions/checkout@v4
 
+  - uses: actions/setup-python@v5
+    with:
+      python-version: "3.12"
+      cache: pip
+
 
 
   - name:
@@ -42,3 +47,20 @@ jobs:
     run:
 
       pytest
+
+  - name: C5 evaluation quality gate
+    run: |
+      python -m app.evaluation.cli run \
+        --dataset data/evaluation/c5_cases.json \
+        --results data/evaluation/c5_results.json \
+        --gate data/evaluation/quality_gate.json \
+        --no-cache \
+        --format markdown \
+        --output c5-evaluation-report.md
+
+  - name: Upload C5 evaluation report
+    if: always()
+    uses: actions/upload-artifact@v4
+    with:
+      name: c5-evaluation-report
+      path: c5-evaluation-report.md

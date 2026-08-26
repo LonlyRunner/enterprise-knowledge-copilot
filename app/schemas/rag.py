@@ -29,6 +29,8 @@ class RagSource(BaseModel):
     score: float
     source: str
     chunk_index: int
+    chunk_id: str | None = None
+    document_id: str | None = None
 
 
 class RagQueryResponse(BaseModel):

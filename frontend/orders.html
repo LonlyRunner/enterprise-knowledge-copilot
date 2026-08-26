@@ -14,7 +14,7 @@
     </header>
     <section class="toolbar">
       <label>API 地址 <input id="apiBase" value="/api/v1"></label>
-      <label>客户 <select id="userId"><option value="demo-user">张晨 / demo-user</option><option value="finance-user">星河制造 / finance-user</option></select></label>
+      <label>当前身份 <select id="userId" disabled><option value="demo-user">张晨 / demo-user（由服务端鉴权）</option></select></label>
       <select id="status"><option value="">全部状态</option><option value="pending_payment">待付款</option><option value="shipping">运输中</option><option value="delivered">已送达</option><option value="completed">已完成</option><option value="refunding">退款处理中</option></select>
       <input id="query" placeholder="搜索订单号或商品">
       <button id="refreshBtn">刷新订单</button><span id="statusText">未加载</span>

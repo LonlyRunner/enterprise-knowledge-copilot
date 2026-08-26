@@ -50,13 +50,14 @@ class ConversationService:
         *,
         knowledge_base_id: uuid.UUID,
         title: str | None = None,
+        tenant_id: str | None = None,
     ) -> ConversationResponse:
 
         knowledge_base = (
             await self
             .knowledge_base_repository
             .get_by_id(
-                knowledge_base_id
+                knowledge_base_id, tenant_id=tenant_id
             )
         )
 
@@ -90,8 +91,11 @@ class ConversationService:
         self,
         *,
         knowledge_base_id: uuid.UUID,
+        tenant_id: str | None = None,
     ) -> list[ConversationResponse]:
 
+        if await self.knowledge_base_repository.get_by_id(knowledge_base_id, tenant_id=tenant_id) is None:
+            raise ValueError("Knowledge base not found")
         conversations = (
             await self
             .conversation_repository
@@ -113,8 +117,11 @@ class ConversationService:
         *,
         knowledge_base_id: uuid.UUID,
         conversation_id: uuid.UUID,
+        tenant_id: str | None = None,
     ):
 
+        if await self.knowledge_base_repository.get_by_id(knowledge_base_id, tenant_id=tenant_id) is None:
+            raise ValueError("Knowledge base not found")
         conversation = (
             await self
             .conversation_repository
@@ -165,8 +172,11 @@ class ConversationService:
         *,
         knowledge_base_id: uuid.UUID,
         conversation_id: uuid.UUID,
+        tenant_id: str | None = None,
     ) -> None:
 
+        if await self.knowledge_base_repository.get_by_id(knowledge_base_id, tenant_id=tenant_id) is None:
+            raise ValueError("Knowledge base not found")
         conversation = (
             await self
             .conversation_repository

@@ -21,6 +21,8 @@ from app.schemas.conversation import (
 from app.services.conversation_service import (
     ConversationService,
 )
+from app.auth.models import User
+from app.auth.rbac import require_permission
 
 
 router = APIRouter()
@@ -39,6 +41,7 @@ async def create_conversation(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("chat:use")),
 ):
 
     service = (
@@ -52,6 +55,7 @@ async def create_conversation(
             knowledge_base_id
         ),
         title=request.title,
+        tenant_id=user.tenant_id,
     )
 
 
@@ -65,6 +69,7 @@ async def list_conversations(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("chat:use")),
 ):
 
     service = (
@@ -76,7 +81,8 @@ async def list_conversations(
     items = await service.list_all(
         knowledge_base_id=(
             knowledge_base_id
-        )
+        ),
+        tenant_id=user.tenant_id,
     )
 
     return {
@@ -95,6 +101,7 @@ async def get_conversation(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("chat:use")),
 ):
 
     service = (
@@ -110,6 +117,7 @@ async def get_conversation(
         conversation_id=(
             conversation_id
         ),
+        tenant_id=user.tenant_id,
     )
 
 
@@ -124,6 +132,7 @@ async def delete_conversation(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("chat:use")),
 ):
 
     service = (
@@ -139,4 +148,5 @@ async def delete_conversation(
         conversation_id=(
             conversation_id
         ),
+        tenant_id=user.tenant_id,
     )

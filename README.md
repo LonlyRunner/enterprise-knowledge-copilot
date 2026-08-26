@@ -36,6 +36,8 @@ JSON 问答响应 + Citation Sources
 
 文档上传后的索引任务由 Celery Worker 异步执行，Redis 用作 Broker、Result Backend 和文档分布式锁。数据库迁移由 Alembic 管理，Docker Compose 提供 PostgreSQL、Redis、API、Worker 和 migrate 服务。
 
+生产部署请先执行 `python -m alembic upgrade head`，并开启 `AUTH_ENABLED=true`。知识库、文档、会话、订单和 MCP 写操作均按租户/角色校验；AI 写操作审批记录存储在 `ai_approvals` 表中。
+
 前端联调台位于 `/ui/`，入口为：
 
 ```text
@@ -79,6 +81,7 @@ http://localhost:8000/ui/project-c.html
 | 语义缓存 | Redis 查询结果缓存，带 TTL 和知识库索引失效 |
 | 流式响应 | `/api/v1/rag/chat/stream` SSE（与 JSON 问答共用持久化逻辑） |
 | 测试 | pytest + pytest-asyncio |
+| C5 评测 | Unified Evaluation Runner、Case Result Cache、Quality Gate、JSON/Markdown Report |
 | 部署 | Docker、Docker Compose、Dockerfile |
 
 ## 架构图中提到但当前没有真正接入的技术
@@ -128,6 +131,19 @@ DeepSeek LLM
   ↓
 JSON Response + Citation
 ```
+
+## C5 评测
+
+离线 Golden Dataset 回放和 CI 门禁：
+
+```powershell
+python -m app.evaluation.cli run `
+  --dataset data/evaluation/c5_cases.json `
+  --results data/evaluation/c5_results.json `
+  --gate data/evaluation/quality_gate.json
+```
+
+需要评测运行中的 Gateway 时，将 `--results` 替换为 `--base-url http://127.0.0.1:8000/api/v1`。详细说明见 [`docs/项目C_最终交付总结与学习手册.md`](docs/项目C_最终交付总结与学习手册.md)。
 
 而不是把 Streaming / SSE 描述成主链路已完成能力。
 

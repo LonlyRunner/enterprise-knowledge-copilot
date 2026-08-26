@@ -53,6 +53,7 @@ class HybridRetriever:
             query: str,
             top_k: int = 5,
             candidate_k: int = 10,
+            tenant_id: str | None = None,
     ) -> list[HybridSearchResult]:
 
         query_embedding = (
@@ -70,6 +71,7 @@ class HybridRetriever:
                     query_embedding
                 ),
                 top_k=candidate_k,
+                tenant_id=tenant_id,
             )
         )
 

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     DateTime,
     String,
+    String,
     Text,
     func,
 )
@@ -34,6 +35,10 @@ class KnowledgeBaseModel(Base):
         UUID(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
+    )
+
+    tenant_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True, default="default", server_default="default"
     )
 
     name: Mapped[str] = mapped_column(
