@@ -17,6 +17,8 @@ from app.schemas.knowledge_base import (
 from app.services.knowledge_base_service import (
     KnowledgeBaseService,
 )
+from app.auth.models import User
+from app.auth.rbac import require_permission
 
 
 router = APIRouter()
@@ -32,15 +34,14 @@ async def create_knowledge_base(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("knowledge:write")),
 ):
 
     service = KnowledgeBaseService(
         db
     )
 
-    return await service.create(
-        request
-    )
+    return await service.create(request, tenant_id=user.tenant_id)
 
 
 @router.get(
@@ -51,13 +52,14 @@ async def list_knowledge_bases(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("knowledge:read")),
 ):
 
     service = KnowledgeBaseService(
         db
     )
 
-    items = await service.list_all()
+    items = await service.list_all(tenant_id=user.tenant_id)
 
     return {
         "items": items
@@ -74,12 +76,11 @@ async def delete_knowledge_base(
     db: AsyncSession = Depends(
         get_db
     ),
+    user: User = Depends(require_permission("knowledge:write")),
 ):
 
     service = KnowledgeBaseService(
         db
     )
 
-    await service.delete(
-        knowledge_base_id
-    )
+    await service.delete(knowledge_base_id, tenant_id=user.tenant_id)

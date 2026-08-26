@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 const api = () => ($('apiBase').value || '/api/v1').replace(/\/$/, '');
 let selectedOrder = null;
 let ticketCount = 0;
+let approvalId = null;
 
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const money = (value) => `¥${Number(value || 0).toLocaleString('zh-CN')}`;
@@ -22,7 +23,7 @@ function renderOrders(items) {
 async function loadOrders() {
   $('statusText').textContent = '加载中…';
   try {
-    const params = new URLSearchParams({user_id:$('userId').value, tenant_id:'default'});
+    const params = new URLSearchParams();
     if ($('status').value) params.set('status', $('status').value);
     if ($('query').value.trim()) params.set('query', $('query').value.trim());
     const result = await request(`/orders?${params}`);
@@ -42,8 +43,8 @@ async function loadOrders() {
 async function selectOrder(orderId) {
   try {
     const [order, logistics] = await Promise.all([
-      request(`/orders/${encodeURIComponent(orderId)}?tenant_id=default&user_id=${encodeURIComponent($('userId').value)}`),
-      request(`/orders/${encodeURIComponent(orderId)}/logistics?tenant_id=default&user_id=${encodeURIComponent($('userId').value)}`),
+      request(`/orders/${encodeURIComponent(orderId)}`),
+      request(`/orders/${encodeURIComponent(orderId)}/logistics`),
     ]);
     selectedOrder = order;
     $('detailTitle').textContent = order.order_id;
@@ -55,6 +56,7 @@ async function selectOrder(orderId) {
     $('ticketPanel').hidden = false;
     $('ticketReason').value = '';
     $('ticketOutput').textContent = '';
+    approvalId = null;
     document.querySelectorAll('.order-row').forEach((row) => row.classList.toggle('active', row.dataset.orderId === orderId));
   } catch (error) {
     $('detailBody').innerHTML = `<div class="empty">订单详情加载失败：${esc(error.message)}</div>`;
@@ -66,7 +68,8 @@ async function submitTicket(approved) {
   const reason = $('ticketReason').value.trim();
   if (reason.length < 2) { $('ticketOutput').textContent = '请先填写至少 2 个字的售后原因。'; return; }
   try {
-    const result = await request(`/orders/${encodeURIComponent(selectedOrder.order_id)}/tickets`, {method:'POST', body:JSON.stringify({reason, approved, tenant_id:'default', user_id:$('userId').value})});
+    const result = await request(`/orders/${encodeURIComponent(selectedOrder.order_id)}/tickets`, {method:'POST', body:JSON.stringify({reason, approved, approval_id: approvalId})});
+    if (result.approval_id) approvalId = result.approval_id;
     $('ticketOutput').textContent = JSON.stringify(result, null, 2);
     if (result.success) { ticketCount += 1; $('ticketCount').textContent = ticketCount; }
   } catch (error) { $('ticketOutput').textContent = `失败：${error.message}`; }

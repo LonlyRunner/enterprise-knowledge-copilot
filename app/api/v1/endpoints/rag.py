@@ -33,7 +33,7 @@ from app.auth.models import User
 from app.cache.semantic import SemanticCache
 
 from app.rag.context import TokenBudget, TokenCounter
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_permission("chat:use"))])
 
 @router.post(
     "/rag/index",
@@ -90,6 +90,7 @@ async def query_rag(
             knowledge_base_id=request.knowledge_base_id,
             question=request.question,
             top_k=request.top_k,
+            tenant_id=user.tenant_id,
         )
         payload = response.model_dump(mode="json")
         await cache.set(str(request.knowledge_base_id), request.question, request.top_k, payload)

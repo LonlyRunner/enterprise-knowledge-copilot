@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 
 from prometheus_client import Counter, Histogram
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,7 @@ from app.gateway.limiter import RedisRateLimiter
 from app.gateway.schemas import GatewayRequest
 from app.llm.client import create_llm_client
 from app.rag.context import TokenCounter
+from app.services.approval_service import ApprovalService
 
 GATEWAY_REQUESTS = Counter(
     "ai_gateway_requests_total",
@@ -51,6 +53,7 @@ class AIGatewayService:
         request_id: str | None = None,
         task_id: str | None = None,
         trace_id: str | None = None,
+        delta_callback: Callable[[str], Awaitable[None]] | None = None,
     ) -> AgentResult:
         import time
 
@@ -78,20 +81,46 @@ class AIGatewayService:
                 raise AppException("Unsupported model", code="MODEL_NOT_SUPPORTED", status_code=400)
             if selected_model == self.settings.deepseek_model:
                 llm = create_llm_client()
+            approval_ids = [str(item) for item in request.metadata.get("approval_ids", [])]
+            execution_request = request
+            if request.approve_actions and session is not None:
+                if approval_ids:
+                    try:
+                        await ApprovalService(session).approve_many(approval_ids, tenant_id=tenant_id, user_id=user_id)
+                    except ValueError as exc:
+                        raise AppException(str(exc), code="APPROVAL_INVALID", status_code=403) from exc
+                else:
+                    # First pass only plans and returns server-persisted approvals.
+                    execution_request = request.model_copy(update={"approve_actions": False})
+
             orchestrator = self.orchestrator_factory(
                 chat_agent=ProjectCChatAgent(llm),
                 token_counter=TokenCounter().count_text,
                 model=selected_model,
             )
             result = await orchestrator.run(
-                request,
+                execution_request,
                 session=session,
                 request_id=request_id,
                 task_id=task_id,
                 trace_id=trace_id,
                 tenant_id=tenant_id,
                 user_id=user_id,
+                delta_callback=delta_callback,
             )
+            if session is not None and result.approvals:
+                approval_service = ApprovalService(session)
+                for approval in result.approvals:
+                    if approval.status == "pending":
+                        await approval_service.create_pending(
+                            approval_id=approval.approval_id,
+                            tenant_id=tenant_id,
+                            user_id=user_id,
+                            action=approval.action,
+                            payload=approval.payload,
+                            idempotency_key=request.metadata.get("idempotency_key"),
+                        )
+                await session.commit()
             result.route = mode
             GATEWAY_REQUESTS.labels(mode, result.status).inc()
             await self.audit.write(

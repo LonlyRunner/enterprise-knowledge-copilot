@@ -20,10 +20,11 @@ class ProjectCActionAgent:
             return await self._analyze_sales(request, tenant_id=tenant_id, user_id=user_id)
         order_id = self._find_order_id(request.question)
         if not order_id:
+            orders = await self._call("list_orders", {}, tenant_id=tenant_id, user_id=user_id)
             return {
-                "status": "completed",
+                "status": "completed" if orders.get("success") else "failed",
                 "summary": "未识别到订单号，已返回可用订单列表",
-                "data": await self._call("list_orders", {}, tenant_id=tenant_id, user_id=user_id),
+                "data": orders,
                 "tool_calls": self._calls,
                 "approvals": [],
                 "artifacts": [],
@@ -33,7 +34,7 @@ class ProjectCActionAgent:
             order = await self._call("query_order", {"order_id": order_id}, tenant_id=tenant_id, user_id=user_id)
             logistics = await self._call("query_logistics", {"order_id": order_id}, tenant_id=tenant_id, user_id=user_id)
             return {
-                "status": "completed",
+                "status": "completed" if order.get("success") and logistics.get("success") else "partial",
                 "summary": f"已查询订单 {order_id} 的订单和物流",
                 "data": {"order": order, "logistics": logistics},
                 "tool_calls": self._calls,
@@ -42,6 +43,15 @@ class ProjectCActionAgent:
             }
 
         order = await self._call("query_order", {"order_id": order_id}, tenant_id=tenant_id, user_id=user_id)
+        if not order.get("success"):
+            return {
+                "status": "failed",
+                "summary": f"订单 {order_id} 查询失败",
+                "data": {"order": order},
+                "tool_calls": self._calls,
+                "approvals": [],
+                "artifacts": [],
+            }
         approvals: list[ApprovalRequest] = []
         if action == "handle_ticket" or "创建工单" in request.question:
             reason = "用户请求售后处理"

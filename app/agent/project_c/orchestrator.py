@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,6 +42,7 @@ class ProjectCOrchestrator:
         trace_id: str,
         tenant_id: str,
         user_id: str,
+        delta_callback: Callable[[str], Awaitable[None]] | None = None,
     ) -> AgentResult:
         plan = self.supervisor.plan(request)
         steps = [
@@ -58,7 +59,7 @@ class ProjectCOrchestrator:
 
         for task in plan:
             if task.agent == "rag":
-                rag_result = await self.rag_agent.run(request, session)
+                rag_result = await self.rag_agent.run(request, session, tenant_id=tenant_id)
                 steps.append(
                     AgentStep(
                         task_id=task.id,
@@ -81,17 +82,20 @@ class ProjectCOrchestrator:
                         task_id=task.id,
                         agent="action",
                         action=task.action,
-                        status="completed",
+                        status="completed" if action_result.get("status") == "completed" else "failed",
                         summary=action_result.get("summary", ""),
                         depends_on=task.depends_on,
                     )
                 )
 
-        answer = await self.chat_agent.run(
-            request.question,
-            rag=rag_result,
-            action=action_result,
-        )
+        if delta_callback:
+            answer_parts: list[str] = []
+            async for delta in self.chat_agent.stream(request.question, rag=rag_result, action=action_result):
+                answer_parts.append(delta)
+                await delta_callback(delta)
+            answer = "".join(answer_parts)
+        else:
+            answer = await self.chat_agent.run(request.question, rag=rag_result, action=action_result)
         steps.append(
             AgentStep(
                 task_id="chat-1",

@@ -14,6 +14,7 @@ from app.models.message import (
     MessageModel,
 )
 from app.models.user import UserModel
+from app.models.approval import ApprovalModel
 
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "ConversationModel",
     "MessageModel",
     "UserModel",
+    "ApprovalModel",
 ]

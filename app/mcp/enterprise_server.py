@@ -1,8 +1,13 @@
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+import uvicorn
 
+from app.core.config import get_settings
 from app.mcp.enterprise import EnterpriseMCPService
 
-mcp = FastMCP("enterprise-business", host="0.0.0.0", port=8001)
+settings = get_settings()
+mcp = FastMCP("enterprise-business", host=settings.mcp_host, port=settings.mcp_port)
 service = EnterpriseMCPService()
 
 
@@ -71,5 +76,13 @@ async def customer_service_agent_prompt():
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    app = mcp.streamable_http_app()
+    if settings.mcp_auth_token:
+        class StaticTokenMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                if request.headers.get("authorization") != f"Bearer {settings.mcp_auth_token}":
+                    return JSONResponse({"detail": "MCP authorization required"}, status_code=401)
+                return await call_next(request)
 
+        app.add_middleware(StaticTokenMiddleware)
+    uvicorn.run(app, host=settings.mcp_host, port=settings.mcp_port)

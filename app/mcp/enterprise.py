@@ -10,7 +10,7 @@ class EnterpriseMCPService:
     """In-process MCP boundary used locally and by the HTTP MCP server."""
 
     def __init__(self, gateway: MockBusinessGateway | None = None):
-        self.gateway = gateway or MockBusinessGateway()
+        self.gateway = gateway or MockBusinessGateway(enforce_identity=True)
         self._profiles = {
             "demo-user": {
                 "customer_id": "CUST-1001",
@@ -122,4 +122,3 @@ class EnterpriseMCPService:
                 "variables": variables,
             },
         }
-

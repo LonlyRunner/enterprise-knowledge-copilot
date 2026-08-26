@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+let approvalIds = [];
 const api = () => ($("apiBase").value || "/api/v1").replace(/\/$/, "");
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -30,12 +31,14 @@ function body() {
     mode: $("mode").value,
     approve_actions: $("approve").checked,
     top_k: 5,
+    metadata: {approval_ids: approvalIds},
   };
   if ($("knowledgeBase").value) payload.knowledge_base_id = $("knowledgeBase").value;
   return payload;
 }
 
 function renderResult(result) {
+  approvalIds = (result.approvals || []).filter((item) => item.status === "pending").map((item) => item.approval_id);
   $("resultStatus").textContent = result.status === "pending_approval" ? "等待人工审批" : "执行完成";
   $("routeBadge").textContent = (result.route || "") + " · " + (result.model || "");
   $("routeBadge").className = "badge " + (result.status === "completed" ? "" : "muted");

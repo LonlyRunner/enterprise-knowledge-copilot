@@ -51,3 +51,19 @@ class ProjectCChatAgent:
                 )
         return "\n".join(sections) or "已收到请求，但当前没有可返回的业务结果。"
 
+    async def stream(self, question: str, *, rag: dict[str, Any] | None, action: dict[str, Any] | None):
+        """Yield answer deltas; deterministic mode uses the same contract for local tests."""
+        if self.llm is None:
+            answer = await self.run(question, rag=rag, action=action)
+            for index in range(0, len(answer), 24):
+                yield answer[index:index + 24]
+            return
+        context = {"question": question, "knowledge": rag or {}, "business": action or {}}
+        prompt = "你是星云科技 Chat Agent。请根据以下已完成的 RAG 和业务 Agent 结果回答用户，不要虚构数据。\n" + json.dumps(context, ensure_ascii=False, default=str)[:12000]
+        try:
+            async for delta in self.llm.stream_chat(prompt):
+                yield delta
+        except Exception:
+            answer = await self.run(question, rag=rag, action=action)
+            for index in range(0, len(answer), 24):
+                yield answer[index:index + 24]

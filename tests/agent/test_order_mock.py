@@ -30,3 +30,10 @@ async def test_mock_ticket_is_created_in_memory():
     assert result["success"] is True
     assert result["data"]["status"] == "pending_review"
     assert len(gateway.tickets) == 1
+
+
+@pytest.mark.asyncio
+async def test_strict_mock_gateway_rejects_cross_identity_access():
+    gateway = MockBusinessGateway(enforce_identity=True)
+    result = await gateway.query_order("XN-2026-000381", tenant_id="other-tenant", user_id="other-user")
+    assert result == {"success": False, "error_code": "ORDER_NOT_FOUND"}

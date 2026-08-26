@@ -19,10 +19,10 @@ class Settings(BaseSettings):
     retry_max_attempts: int = 3
     retry_base_delay_seconds: float = 0.5
     llm_provider: str = "deepseek"
-    deepseek_api_key: str
+    deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-chat"
-    embedding_api_key: str
+    embedding_api_key: str = ""
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1024
@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     gateway_default_model: str = "project-c-router"
     mcp_server_url: str = "http://127.0.0.1:8001/mcp"
     mcp_external_enabled: bool = False
+    mcp_auth_token: str = ""
+    mcp_host: str = "0.0.0.0"
+    mcp_port: int = 8001
     document_storage_path: str = "storage/documents"
     max_upload_size_mb: int = 20
     celery_broker_url: str = "redis://127.0.0.1:6379/0"

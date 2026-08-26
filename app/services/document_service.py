@@ -52,21 +52,25 @@ class DocumentService:
             )
         )
 
+    async def _ensure_knowledge_base(self, knowledge_base_id: uuid.UUID, tenant_id: str | None) -> None:
+        if await self.knowledge_base_repository.get_by_id(knowledge_base_id, tenant_id=tenant_id) is None:
+            raise ValueError("Knowledge base not found")
+
 
     async def upload(
         self,
         *,
         knowledge_base_id: uuid.UUID,
         file: UploadFile,
+        tenant_id: str | None = None,
     ) -> tuple[
         DocumentResponse,
         str,
     ]:
 
         knowledge_base = (
-            await self.knowledge_base_repository
-            .get_by_id(
-                knowledge_base_id
+            await self.knowledge_base_repository.get_by_id(
+                knowledge_base_id, tenant_id=tenant_id
             )
         )
 
@@ -139,6 +143,7 @@ class DocumentService:
                         destination
                     ),
                     status="pending",
+                    tenant_id=tenant_id,
                 )
             )
 
@@ -208,13 +213,14 @@ class DocumentService:
     async def list_documents(
         self,
         knowledge_base_id: uuid.UUID,
+        *,
+        tenant_id: str | None = None,
     ) -> list[DocumentResponse]:
 
+        await self._ensure_knowledge_base(knowledge_base_id, tenant_id)
+
         models = (
-            await self.document_repository
-            .list_by_knowledge_base(
-                knowledge_base_id
-            )
+            await self.document_repository.list_by_knowledge_base(knowledge_base_id)
         )
 
         return [
@@ -229,7 +235,10 @@ class DocumentService:
         *,
         knowledge_base_id: uuid.UUID,
         document_id: uuid.UUID,
+        tenant_id: str | None = None,
     ) -> DocumentResponse:
+
+        await self._ensure_knowledge_base(knowledge_base_id, tenant_id)
 
         model = (
             await self.document_repository
@@ -248,6 +257,9 @@ class DocumentService:
                 "Document not found"
             )
 
+        if tenant_id is not None and model.tenant_id != tenant_id:
+            raise ValueError("Document not found")
+
         return self._to_response(
             model
         )
@@ -257,7 +269,10 @@ class DocumentService:
             *,
             knowledge_base_id: uuid.UUID,
             document_id: uuid.UUID,
+            tenant_id: str | None = None,
     ) -> str:
+
+        await self._ensure_knowledge_base(knowledge_base_id, tenant_id)
 
         #
         # SELECT ... FOR UPDATE
@@ -278,6 +293,8 @@ class DocumentService:
             raise ValueError(
                 "Document not found"
             )
+        if tenant_id is not None and document.tenant_id != tenant_id:
+            raise ValueError("Document not found")
 
         #
         # 由于这一行已经锁住，
@@ -344,7 +361,10 @@ class DocumentService:
         *,
         knowledge_base_id: uuid.UUID,
         document_id: uuid.UUID,
+        tenant_id: str | None = None,
     ) -> None:
+
+        await self._ensure_knowledge_base(knowledge_base_id, tenant_id)
 
         document = (
             await self.document_repository
@@ -362,6 +382,8 @@ class DocumentService:
             raise ValueError(
                 "Document not found"
             )
+        if tenant_id is not None and document.tenant_id != tenant_id:
+            raise ValueError("Document not found")
 
         source_path = (
             document.source_path

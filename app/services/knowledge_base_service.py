@@ -38,6 +38,8 @@ class KnowledgeBaseService:
     async def create(
         self,
         request: KnowledgeBaseCreateRequest,
+        *,
+        tenant_id: str | None = None,
     ) -> KnowledgeBaseResponse:
 
         model = (
@@ -46,6 +48,7 @@ class KnowledgeBaseService:
                 description=(
                     request.description
                 ),
+                tenant_id=tenant_id or self.settings.default_tenant_id,
             )
         )
 
@@ -60,12 +63,14 @@ class KnowledgeBaseService:
 
     async def list_all(
         self,
+        *,
+        tenant_id: str | None = None,
     ) -> list[
         KnowledgeBaseResponse
     ]:
 
         models = (
-            await self.repository.list_all()
+            await self.repository.list_all(tenant_id=tenant_id)
         )
 
         return [
@@ -81,11 +86,14 @@ class KnowledgeBaseService:
     async def delete(
         self,
         knowledge_base_id: uuid.UUID,
+        *,
+        tenant_id: str | None = None,
     ) -> None:
 
         model = (
             await self.repository.get_by_id(
-                knowledge_base_id
+                knowledge_base_id,
+                tenant_id=tenant_id,
             )
         )
 
