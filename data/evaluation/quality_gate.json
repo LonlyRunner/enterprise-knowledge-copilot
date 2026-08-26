@@ -1,0 +1,14 @@
+{
+  "thresholds": {
+    "agent.routing": 1.0,
+    "agent.tool_selection": 1.0,
+    "agent.tool_arguments": 1.0,
+    "retrieval.hit_rate": 1.0,
+    "retrieval.recall_at_k": 1.0,
+    "retrieval.mrr": 1.0,
+    "generation.keyword": 0.90,
+    "generation.citation": 1.0,
+    "generation.groundedness": 0.70,
+    "generation.relevance": 0.20
+  }
+}

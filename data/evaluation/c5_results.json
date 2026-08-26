@@ -1,0 +1,33 @@
+[
+  {
+    "case_id": "agent_order_logistics",
+    "route": "agent",
+    "answer": "订单 XN-2026-000381 当前运输中，承运商为顺丰速运。",
+    "tool_calls": [
+      {"tool": "query_order", "arguments": {"order_id": "XN-2026-000381"}, "success": true},
+      {"tool": "query_logistics", "arguments": {"order_id": "XN-2026-000381"}, "success": true}
+    ]
+  },
+  {
+    "case_id": "agent_sales_anomaly",
+    "route": "agent",
+    "answer": "销售分析共发现异常订单，建议对异常订单创建工单。",
+    "tool_calls": [
+      {"tool": "list_orders", "arguments": {}, "success": true}
+    ]
+  },
+  {
+    "case_id": "rag_expense_4000",
+    "route": "rag",
+    "answer": "4000元报销需要直属主管和部门负责人审批。",
+    "retrieved_chunk_ids": ["chunk_001"],
+    "retrieved_contents": ["报销金额1000元至5000元，需要直属主管和部门负责人审批。"],
+    "citations": [{"source": "expense_reimbursement_policy.md", "chunk_id": "chunk_001", "content": "报销金额1000元至5000元，需要直属主管和部门负责人审批。"}],
+    "context": "报销金额1000元至5000元，需要直属主管和部门负责人审批。"
+  },
+  {
+    "case_id": "rag_negative_overtime",
+    "route": "rag",
+    "answer": "知识库没有提供加班一小时的具体金额，无法确认。"
+  }
+]

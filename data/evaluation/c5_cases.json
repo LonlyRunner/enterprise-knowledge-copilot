@@ -1,0 +1,47 @@
+[
+  {
+    "id": "agent_order_logistics",
+    "question": "查询订单 XN-2026-000381 的状态和物流",
+    "expected_route": "agent",
+    "expected_tools": ["query_order", "query_logistics"],
+    "expected_tool_arguments": {
+      "query_order": {"order_id": "XN-2026-000381"},
+      "query_logistics": {"order_id": "XN-2026-000381"}
+    },
+    "expected_answer_keywords": ["运输中", "顺丰"],
+    "category": "agent",
+    "answerable": false,
+    "request": {"mode": "agent"}
+  },
+  {
+    "id": "agent_sales_anomaly",
+    "question": "总结今年销售情况，并找出异常订单",
+    "expected_route": "agent",
+    "expected_tools": ["list_orders"],
+    "expected_tool_arguments": {"list_orders": {}},
+    "expected_answer_keywords": ["销售", "异常", "订单"],
+    "category": "agent",
+    "answerable": false,
+    "request": {"mode": "agent"}
+  },
+  {
+    "id": "rag_expense_4000",
+    "question": "4000元报销需要哪些审批？",
+    "expected_answer": "4000元报销需要直属主管和部门负责人审批",
+    "expected_answer_keywords": ["4000", "直属主管", "部门负责人"],
+    "relevant_chunk_ids": ["chunk_001"],
+    "expected_chunk_keywords": ["1000元", "5000元", "部门负责人"],
+    "expected_route": "rag",
+    "category": "retrieval",
+    "answerable": true,
+    "request": {"mode": "rag", "knowledge_base_id": "00000000-0000-0000-0000-000000000001"}
+  },
+  {
+    "id": "rag_negative_overtime",
+    "question": "公司加班一小时多少钱？",
+    "expected_route": "rag",
+    "category": "negative",
+    "answerable": false,
+    "request": {"mode": "rag", "knowledge_base_id": "00000000-0000-0000-0000-000000000001"}
+  }
+]
